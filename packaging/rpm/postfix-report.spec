@@ -98,7 +98,7 @@ exit 0
 
 %files
 %license LICENSE
-%doc README.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md config.example.yaml
+%doc README.md README.en.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md config.example.yaml
 %doc examples
 %{_bindir}/%{name}
 %{_mandir}/man1/%{name}.1*

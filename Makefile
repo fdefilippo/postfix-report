@@ -87,6 +87,7 @@ install: build
 	install -D -m 0644 docs/postfix-report.1 $(DESTDIR)$(PREFIX)/share/man/man1/postfix-report.1
 	install -D -m 0644 config.example.yaml $(DESTDIR)$(PREFIX)/share/doc/postfix-report/config.example.yaml
 	install -D -m 0644 README.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/README.md
+	install -D -m 0644 README.en.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/README.en.md
 	install -D -m 0644 METRICS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/METRICS.md
 	install -D -m 0644 LIMITATIONS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/LIMITATIONS.md
 
@@ -144,7 +145,7 @@ deb:
 	gzip -9n -c docs/postfix-report.1 > $(DEB_ROOT)/usr/share/man/man1/postfix-report.1.gz
 	install -m 0644 packaging/deb/copyright $(DEB_ROOT)/etc/postfix-report/config.yaml $(DEB_DOC)/
 	mv $(DEB_DOC)/config.yaml $(DEB_DOC)/config.example.yaml
-	for f in README.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md; do gzip -9n -c $$f > $(DEB_DOC)/$$f.gz; done
+	for f in README.md README.en.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md; do gzip -9n -c $$f > $(DEB_DOC)/$$f.gz; done
 	install -m 0644 deploy/apache/postfix-report.conf $(DEB_DOC)/examples/apache-postfix-report.conf
 	install -m 0644 deploy/nginx/postfix-report.conf $(DEB_DOC)/examples/nginx-postfix-report.conf
 	install -m 0644 deploy/cron/postfix-report $(DEB_DOC)/examples/cron-postfix-report

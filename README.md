@@ -1,5 +1,7 @@
 # postfix-report
 
+[English](README.en.md) · **Italiano**
+
 Analisi dei log di Postfix con storico in SQLite e **report HTML statici**
 (giornalieri, settimanali ISO 8601, mensili, annuali), aggiornati in modo
 incrementale da un timer systemd. Non servono servizi esterni, Internet o
@@ -81,26 +83,26 @@ make bench        # benchmark del parser e della pipeline
 
 Gli RPM già compilati per EL8, EL9 ed EL10 sono allegati alle
 [release su GitHub](https://github.com/fdefilippo/postfix-report/releases),
-con SRPM, sorgenti e `SHA256SUMS`. Per compilarli in proprio:
-
-Su una macchina EL con `golang` (≥ 1.25) e `rpm-build` installati:
+con SRPM, sorgenti e `SHA256SUMS`. Per compilarli in proprio, su una
+macchina EL con `golang` (≥ 1.25) e `rpm-build` installati:
 
 ```bash
 sudo dnf install golang rpm-build systemd-rpm-macros git make
-make rpm          # dist/rpmbuild/RPMS/x86_64/postfix-report-0.1-1.el9.x86_64.rpm
+make rpm          # dist/rpmbuild/RPMS/x86_64/postfix-report-<versione>-1.el9.x86_64.rpm
 sudo dnf install dist/rpmbuild/RPMS/x86_64/postfix-report-*.rpm
 ```
 
 `make rpm` crea prima `dist/postfix-report-<versione>.tar.gz` (sorgenti più
 `vendor/`, quindi `rpmbuild` non usa la rete) e poi lancia `rpmbuild -ba`.
-`make srpm` produce solo l'SRPM, utile con `mock`. Per pubblicare una
-release si aggiornano `Version` e `%changelog` nello spec e la versione in
-`docs/postfix-report.1`, poi si crea e si invia il tag (`git tag -a v0.2 &&
-git push origin v0.2`): il workflow `.github/workflows/release.yml` controlla
-le versioni (`make release-check`), compila gli RPM e crea la release. Il
-workflow parte solo sui tag. La versione è quella
+`make srpm` produce solo l'SRPM, utile con `mock`. La versione è quella
 indicata nello spec (`packaging/rpm/postfix-report.spec`). Il binario è
 statico: un RPM compilato su EL9 si installa anche su EL10.
+
+Per pubblicare una release si aggiornano `Version` e `%changelog` nello spec
+e la versione in `docs/postfix-report.1`, poi si crea e si invia il tag
+(`git tag -a v0.2 && git push origin v0.2`). Il workflow
+`.github/workflows/release.yml` controlla le versioni (`make release-check`),
+compila gli RPM e i `.deb` e crea la release. Parte solo sui tag.
 
 Il pacchetto installa:
 
@@ -177,7 +179,8 @@ Il servizio legge i log con l'utente `postfix-report`.
 
 * **Debian/Ubuntu**: `/var/log/mail.log*` sono `root:adm 0640`.
   L'unità systemd aggiunge già il gruppo `adm` (`SupplementaryGroups=adm`).
-  In configurazione usare `paths: [/var/log/mail.log, /var/log/mail.log.*]`.
+  In configurazione usare `paths: [/var/log/mail.log, /var/log/mail.log.*]`
+  (il default del pacchetto `.deb`).
 * **Enterprise Linux**: `/var/log/maillog` è `root:root 0600`. Due alternative:
   1. **rsyslog** (consigliata): far creare il file con un gruppo dedicato, in
      `/etc/rsyslog.d/maillog.conf`:
@@ -276,7 +279,7 @@ Un lock (`<database>.lock`, `flock`) impedisce esecuzioni concorrenti.
 ## Esecuzione automatica (systemd)
 
 ```bash
-sudo make install-systemd        # non serve se si è installato l'RPM
+sudo make install-systemd        # non serve con il pacchetto RPM o .deb
 sudo systemctl daemon-reload
 sudo systemctl enable --now postfix-report.timer
 systemctl list-timers postfix-report.timer
