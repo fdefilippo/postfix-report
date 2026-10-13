@@ -9,7 +9,7 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.1.1
+Version:        0.1.2
 Release:        1%{?dist}
 Summary:        Statistiche Postfix con storico SQLite e report HTML statici
 
@@ -110,6 +110,11 @@ exit 0
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Tue Oct 13 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1.2-1
+- Report: footer con copyright, repository e licenza.
+- Database dei fusi orari incorporato nel binario (sistemi senza tzdata).
+- Pacchetti .deb per Debian e Ubuntu (amd64, arm64).
+
 * Tue Oct 13 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1.1-1
 - Binario compilato per x86-64 di base (GOAMD64=v1): la 0.1 non partiva su
   CPU senza x86-64-v2.
