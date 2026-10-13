@@ -102,9 +102,19 @@ func TestGenerateAllLinksAndOffline(t *testing.T) {
 	if lr.Links < pages*10 {
 		t.Errorf("suspiciously few links: %d", lr.Links)
 	}
-	// No absolute URLs, no fetch() of data, no CDN.
+	// No absolute URLs, no fetch() of data, no CDN. The project URL appears
+	// only as plain text in the copyright footer, never as a link.
+	const projectURL = "https://github.com/fdefilippo/postfix-report"
 	for _, p := range []string{"index.html", "daily/2025-12-20.html", "assets/js/report.js"} {
-		body := strings.ReplaceAll(read(t, env, p), "http://www.w3.org/2000/svg", "")
+		body := read(t, env, p)
+		if strings.HasSuffix(p, ".html") {
+			footer := "&lt;francesco@defilippo.org&gt; · " + projectURL + " · License: GNU GPLv3 or later</p>"
+			if !strings.Contains(body, footer) {
+				t.Errorf("%s: copyright footer missing", p)
+			}
+			body = strings.Replace(body, footer, "", 1)
+		}
+		body = strings.ReplaceAll(body, "http://www.w3.org/2000/svg", "")
 		for _, bad := range []string{"http://", "https://", "fetch(", "XMLHttpRequest"} {
 			if strings.Contains(body, bad) {
 				t.Errorf("%s contains %q", p, bad)
