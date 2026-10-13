@@ -91,10 +91,15 @@ install: build
 	install -D -m 0644 METRICS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/METRICS.md
 	install -D -m 0644 LIMITATIONS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/LIMITATIONS.md
 
-# The unit refers to /usr/bin (RPM layout): rewrite it for $(PREFIX).
+# The unit refers to /usr/bin (RPM layout): rewrite it for $(PREFIX). With
+# systemd < 245 (e.g. EL8) drop the directives it does not know.
+SYSTEMD_VERSION ?= $(shell systemctl --version 2>/dev/null | awk 'NR==1 {print $$2+0}')
 install-systemd:
 	install -d $(DESTDIR)/etc/systemd/system
-	sed 's|/usr/bin/$(BINARY)|$(PREFIX)/bin/$(BINARY)|' deploy/systemd/postfix-report.service > $(DESTDIR)/etc/systemd/system/postfix-report.service
+	sed -e 's|/usr/bin/$(BINARY)|$(PREFIX)/bin/$(BINARY)|' \
+		$$(if [ -n "$(SYSTEMD_VERSION)" ] && [ "$(SYSTEMD_VERSION)" -lt 245 ]; then \
+			echo "-e /^ProtectHostname=/d -e /^ProtectKernelLogs=/d -e /^ProtectClock=/d -e /^IPAddressDeny=/d"; fi) \
+		deploy/systemd/postfix-report.service > $(DESTDIR)/etc/systemd/system/postfix-report.service
 	chmod 0644 $(DESTDIR)/etc/systemd/system/postfix-report.service
 	install -D -m 0644 deploy/systemd/postfix-report.timer $(DESTDIR)/etc/systemd/system/postfix-report.timer
 

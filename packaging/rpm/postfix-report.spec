@@ -9,7 +9,7 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.1.2
+Version:        0.1.3
 Release:        1%{?dist}
 Summary:        Statistiche Postfix con storico SQLite e report HTML statici
 
@@ -77,6 +77,12 @@ install -D -m 0644 docs/%{name}.1 %{buildroot}%{_mandir}/man1/%{name}.1
 install -D -m 0640 config.example.yaml %{buildroot}%{_sysconfdir}/%{name}/config.yaml
 install -D -m 0644 deploy/systemd/%{name}.service %{buildroot}%{_unitdir}/%{name}.service
 install -D -m 0644 deploy/systemd/%{name}.timer %{buildroot}%{_unitdir}/%{name}.timer
+%if 0%{?rhel} && 0%{?rhel} < 9
+# systemd 239: no ProtectHostname/ProtectKernelLogs/ProtectClock, and no BPF
+# firewall with cgroup v1 (PrivateNetwork=yes already isolates the service).
+sed -i -e '/^ProtectHostname=/d' -e '/^ProtectKernelLogs=/d' -e '/^ProtectClock=/d' \
+    -e '/^IPAddressDeny=/d' %{buildroot}%{_unitdir}/%{name}.service
+%endif
 install -d -m 0750 %{buildroot}%{_sharedstatedir}/%{name}
 install -d -m 0755 %{buildroot}%{_localstatedir}/www/html/%{name}
 
@@ -110,6 +116,11 @@ exit 0
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Tue Oct 13 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1.3-1
+- EL8: unità systemd senza le direttive sconosciute a systemd 239
+  (ProtectHostname, ProtectKernelLogs, ProtectClock, IPAddressDeny).
+- README in inglese (README.en.md).
+
 * Tue Oct 13 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1.2-1
 - Report: footer con copyright, repository e licenza.
 - Database dei fusi orari incorporato nel binario (sistemi senza tzdata).

@@ -20,6 +20,10 @@ Nice=10
 IOSchedulingClass=idle
 
 # Hardening: il programma non usa la rete e scrive solo DB e directory HTML.
+# ProtectHostname, ProtectKernelLogs e ProtectClock richiedono systemd ≥ 242,
+# 244 e 245; IPAddressDeny il firewall BPF di cgroup v2 (ridondante con
+# PrivateNetwork). Il pacchetto EL8 (systemd 239) e "make install-systemd"
+# con systemd < 245 le tolgono, per non avere "Unknown lvalue" nel journal.
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
