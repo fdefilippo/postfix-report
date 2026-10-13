@@ -82,27 +82,49 @@ type sourceRow struct {
 	fileMtime  int64
 }
 
-// tailState holds the occurrence counters of identical lines within the last
-// second read, so that a resumed import keys duplicates consistently.
+// tailWindow is how far back (seconds) occurrence counters are kept: lines
+// of different hosts or slightly out of order may interleave within it.
+const tailWindow = 300
+
+// occ counts the occurrences of one identical line (same text, hence same
+// host and second) seen so far.
+type occ struct {
+	TS int64 `json:"t"`
+	N  int   `json:"n"`
+}
+
+// tailState holds the occurrence counters of recent lines, so that a resumed
+// import keys duplicates consistently.
 type tailState struct {
-	TS     int64          `json:"ts"`
-	Counts map[string]int `json:"counts"`
-	cnt    map[uint64]int // working copy
+	Window map[string]occ `json:"window"`
+	cnt    map[uint64]occ // working copy
+	maxTS  int64
 }
 
 func (t *tailState) load() {
-	t.cnt = map[uint64]int{}
-	for k, v := range t.Counts {
+	t.cnt = map[uint64]occ{}
+	for k, v := range t.Window {
 		if h, err := strconv.ParseUint(k, 16, 64); err == nil {
 			t.cnt[h] = v
+			t.maxTS = max(t.maxTS, v.TS)
+		}
+	}
+}
+
+// prune drops counters older than the window.
+func (t *tailState) prune() {
+	for k, v := range t.cnt {
+		if v.TS < t.maxTS-tailWindow {
+			delete(t.cnt, k)
 		}
 	}
 }
 
 func (t *tailState) dump() string {
-	t.Counts = map[string]int{}
+	t.prune()
+	t.Window = map[string]occ{}
 	for k, v := range t.cnt {
-		t.Counts[strconv.FormatUint(k, 16)] = v
+		t.Window[strconv.FormatUint(k, 16)] = v
 	}
 	b, _ := json.Marshal(t)
 	return string(b)
@@ -315,6 +337,7 @@ type fileImport struct {
 	gap      int64
 	dayStart int64
 	dayEnd   int64
+	days     map[string]bool // days touched in the current batch
 	hosts    map[string]bool
 }
 
@@ -356,6 +379,7 @@ func (im *Importer) importFile(ctx context.Context, importID int64, path string,
 		clock:   logparse.NewClock(im.Cfg.Location, im.Cfg.Input.Year, time.Unix(lf.mtime, 0), src.clockState),
 		segs:    map[string]*segState{},
 		unknown: map[string]*unknownAgg{},
+		days:    map[string]bool{},
 		gap:     int64(im.Cfg.Coverage.GapThreshold.Seconds()),
 	}
 	if len(im.Cfg.Input.Hosts) > 0 {
@@ -555,13 +579,20 @@ func (fi *fileImport) ukey(ts int64, text string) int64 {
 	h.Write([]byte(text))
 	base := h.Sum64()
 	t := &fi.src.tail
-	if t.TS != ts {
-		t.TS = ts
-		t.cnt = map[uint64]int{}
+	if ts > t.maxTS {
+		t.maxTS = ts
 	}
-	occ := t.cnt[base]
-	t.cnt[base] = occ + 1
-	h.Write([]byte{0, byte(occ), byte(occ >> 8), byte(occ >> 16)})
+	o := t.cnt[base]
+	if o.TS != ts {
+		o = occ{TS: ts}
+	}
+	n := o.N
+	o.N++
+	t.cnt[base] = o
+	if len(t.cnt) > 50000 {
+		t.prune()
+	}
+	h.Write([]byte{0, byte(n), byte(n >> 8), byte(n >> 16)})
 	return int64(h.Sum64() >> 1)
 }
 
@@ -594,6 +625,7 @@ func (fi *fileImport) markDay(ts int64) {
 	p := period.Of(period.Day, time.Unix(ts, 0), fi.im.Cfg.Location)
 	fi.dayStart, fi.dayEnd = p.Start.Unix(), p.End.Unix()
 	fi.res.DirtyDays[p.Key] = true
+	fi.days[p.Key] = true
 }
 
 // commit persists the checkpoint, segments and counters with the events.
@@ -633,6 +665,13 @@ func (fi *fileImport) commit(offset int64, complete bool) error {
 		}
 	}
 	fi.unknown = map[string]*unknownAgg{}
+	// Days with new lines are marked dirty with the lines themselves.
+	if err := store.MarkDirtyDays(tx, fi.days); err != nil {
+		tx.Rollback()
+		return err
+	}
+	fi.days = map[string]bool{}
+	fi.dayStart, fi.dayEnd = 0, 0
 	cs, _ := json.Marshal(fi.clock.State())
 	first := fi.src.firstTS
 	if fi.fr.FirstTS != 0 && (!first.Valid || fi.fr.FirstTS < first.Int64) {

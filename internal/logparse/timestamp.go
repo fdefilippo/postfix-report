@@ -27,13 +27,12 @@ const dstTolerance = 15 * time.Minute
 // that occur twice when daylight saving time ends are disambiguated by
 // keeping the resolved sequence monotonic.
 type Clock struct {
-	loc         *time.Location
-	anchored    bool
-	refYear     int
-	refMonthDay int
-	year        int
-	lastMonth   time.Month
-	last        time.Time
+	loc       *time.Location
+	anchored  bool
+	ref       time.Time
+	year      int
+	lastMonth time.Month
+	last      time.Time
 }
 
 // ClockState is the persistent part of a Clock, saved with checkpoints so
@@ -66,9 +65,7 @@ func NewClock(loc *time.Location, fixedYear int, reference time.Time, st *ClockS
 	if reference.IsZero() {
 		reference = time.Now()
 	}
-	ref := reference.In(loc)
-	c.refYear = ref.Year()
-	c.refMonthDay = monthDay(ref)
+	c.ref = reference.In(loc)
 	return c
 }
 
@@ -81,14 +78,13 @@ func (c *Clock) State() ClockState {
 	return st
 }
 
-func monthDay(t time.Time) int { return int(t.Month())*100 + t.Day() }
-
-// anchor fixes the year for the first line of an unanchored clock: lines
-// dated after the reference day (with one day of tolerance for files whose
-// mtime precedes their last line) belong to the previous year.
+// anchor fixes the year for the first line of an unanchored clock: a line
+// that would fall more than one day after the reference time (the file
+// mtime, which cannot precede its own lines by much) belongs to the
+// previous year.
 func (c *Clock) anchor(mon time.Month, day int) {
-	c.year = c.refYear
-	if int(mon)*100+day > c.refMonthDay+1 {
+	c.year = c.ref.Year()
+	if time.Date(c.year, mon, day, 0, 0, 0, 0, c.loc).After(c.ref.Add(24 * time.Hour)) {
 		c.year--
 	}
 	c.anchored = true

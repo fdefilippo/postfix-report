@@ -187,6 +187,17 @@ func (ag *Aggregator) RecomputeDay(ctx context.Context, day string) error {
 				}
 			}
 		}
+		// Invalidate the dependent pages in the same transaction that clears
+		// the dirty mark, so an interruption cannot lose either.
+		pages, err := period.DependentPages(day, ag.Loc)
+		if err != nil {
+			return err
+		}
+		for _, pg := range pages {
+			if _, err := tx.Exec(`INSERT OR IGNORE INTO dirty_pages(kind, key) VALUES(?,?)`, pg.Kind, pg.Key); err != nil {
+				return err
+			}
+		}
 		_, err = tx.Exec(`DELETE FROM dirty_days WHERE day=?`, day)
 		return err
 	})

@@ -22,7 +22,6 @@ import (
 	"github.com/fdefilippo/postfix-report/internal/config"
 	"github.com/fdefilippo/postfix-report/internal/correlate"
 	"github.com/fdefilippo/postfix-report/internal/ingest"
-	"github.com/fdefilippo/postfix-report/internal/period"
 	"github.com/fdefilippo/postfix-report/internal/store"
 )
 
@@ -135,63 +134,29 @@ func (a *App) doImport(ctx context.Context, importID int64, paths []string) (*Im
 	}
 	sum := &ImportSummary{Files: res.Files, Lines: res.Lines, Events: res.Events, Duplicates: res.Duplicates, FileErrors: ferr}
 	co := &correlate.Correlator{DB: a.DB, Cfg: a.Cfg, Log: a.Log}
-	cs, err := co.Run(ctx, res.MinTS)
+	cs, err := co.Run(ctx)
 	if err != nil {
 		return sum, fmt.Errorf("correlate: %w", err)
 	}
 	sum.Correlated, sum.Reinjected, sum.Orphans, sum.FullHosts = cs.Events, cs.Reinjected, cs.Orphans, cs.FullHosts
-	days := map[string]bool{}
-	for d := range res.DirtyDays {
-		days[d] = true
-	}
-	for d := range cs.DirtyDays {
-		days[d] = true
-	}
-	if err := store.MarkDirtyDays(a.DB, days); err != nil {
+	// Dirty days were recorded by ingest and correlation in their own
+	// transactions; the index always reflects the latest import run.
+	if _, err := a.DB.Exec(`INSERT OR IGNORE INTO dirty_pages(kind, key) VALUES('index','index')`); err != nil {
 		return sum, err
 	}
 	sum.DaysUpdated, err = a.Aggregate(ctx)
 	return sum, err
 }
 
-// Aggregate recomputes the dirty days and invalidates their pages.
+// Aggregate recomputes the dirty days; each day's dependent pages are
+// invalidated in the same transaction.
 func (a *App) Aggregate(ctx context.Context) ([]string, error) {
 	ag := &aggregate.Aggregator{DB: a.DB, Loc: a.Cfg.Location}
 	days, err := ag.RecomputeDirty(ctx)
 	if err != nil {
 		return days, fmt.Errorf("aggregate: %w", err)
 	}
-	return days, a.invalidate(days)
-}
-
-// invalidate marks the report pages that depend on the given days: the
-// periods containing them, their neighbours (navigation links and
-// comparisons with the previous period) and the index.
-func (a *App) invalidate(days []string) error {
-	if len(days) == 0 {
-		return nil
-	}
-	pages := map[[2]string]bool{{"index", "index"}: true}
-	for _, d := range days {
-		t, err := time.ParseInLocation("2006-01-02", d, a.Cfg.Location)
-		if err != nil {
-			return err
-		}
-		for _, k := range period.Kinds {
-			p := period.Of(k, t, a.Cfg.Location)
-			for _, q := range []period.Period{p, p.Prev(), p.Next()} {
-				pages[[2]string{string(k), q.Key}] = true
-			}
-		}
-	}
-	return a.DB.Tx(context.Background(), func(tx *sql.Tx) error {
-		for k := range pages {
-			if _, err := tx.Exec(`INSERT OR IGNORE INTO dirty_pages(kind, key) VALUES(?,?)`, k[0], k[1]); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	return days, nil
 }
 
 // Rebuild re-correlates all stored events and recomputes every aggregate.
@@ -201,13 +166,18 @@ func (a *App) Rebuild(ctx context.Context) (*correlate.Stats, []string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if _, err := a.DB.Exec(`DELETE FROM agg_hour`); err != nil {
-		return cs, nil, err
-	}
-	if _, err := a.DB.Exec(`DELETE FROM agg_dim`); err != nil {
-		return cs, nil, err
-	}
-	if err := store.MarkDirtyDays(a.DB, cs.DirtyDays); err != nil {
+	// Clearing the aggregates and marking every day dirty is one transaction:
+	// an interruption leaves either the old aggregates or a full to-do list.
+	err = a.DB.Tx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM agg_hour`); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`DELETE FROM agg_dim`); err != nil {
+			return err
+		}
+		return store.MarkDirtyDays(tx, cs.DirtyDays)
+	})
+	if err != nil {
 		return cs, nil, err
 	}
 	days, err := a.Aggregate(ctx)

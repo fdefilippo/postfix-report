@@ -64,25 +64,46 @@ func (g *Generator) link(root string, p period.Period, text string) *Link {
 	return nil
 }
 
-func (g *Generator) nav(root string, active string) []NavItem {
+// nav builds the top bar. On the index it points to the latest periods; on a
+// period page it points to the periods containing that page, so that pages
+// which are not regenerated never carry stale "latest" links.
+func (g *Generator) nav(root string, active string, at time.Time) []NavItem {
 	items := []NavItem{{Href: root + "index.html", Text: "Panoramica", Active: active == "index"}}
 	if !g.hasData {
 		return items
 	}
-	names := map[period.Kind]string{period.Day: "Giorno", period.Week: "Settimana", period.Month: "Mese", period.Year: "Anno"}
+	names := map[period.Kind]string{period.Day: "Ultimo giorno", period.Week: "Ultima settimana", period.Month: "Ultimo mese", period.Year: "Ultimo anno"}
+	if active != "index" {
+		names = map[period.Kind]string{period.Day: "Giorno", period.Week: "Settimana", period.Month: "Mese", period.Year: "Anno"}
+	}
 	for _, k := range period.Kinds {
 		if !g.enabled(k) {
 			continue
 		}
-		p := period.Of(k, g.lastDay.Start, g.loc())
-		items = append(items, NavItem{Href: root + p.Path(), Text: names[k], Active: active == string(k)})
+		// A period page links to itself and to the coarser periods containing it.
+		if active != "index" && indexOf(string(k)) < indexOf(active) {
+			continue
+		}
+		p := period.Of(k, at, g.loc())
+		if h := g.href(root, p); h != "" {
+			items = append(items, NavItem{Href: h, Text: names[k], Active: active == string(k)})
+		}
 	}
 	return items
 }
 
-func (g *Generator) basePage(root, title, active string) *Page {
+func indexOf(kind string) int {
+	for i, k := range period.Kinds {
+		if string(k) == kind {
+			return i
+		}
+	}
+	return 0
+}
+
+func (g *Generator) basePage(root, title, active string, at time.Time) *Page {
 	return &Page{
-		Root: root, SiteTitle: g.Cfg.Output.Title, Title: title, Nav: g.nav(root, active),
+		Root: root, SiteTitle: g.Cfg.Output.Title, Title: title, Nav: g.nav(root, active, at),
 		Generated: generatedPlaceholder, Version: g.Version, Privacy: g.privacyNote(),
 	}
 }
@@ -600,7 +621,7 @@ func (g *Generator) periodPage(p period.Period) (*Page, error) {
 		return nil, err
 	}
 	root := "../"
-	pg := g.basePage(root, g.title(p), string(p.Kind))
+	pg := g.basePage(root, g.title(p), string(p.Kind), p.Start)
 	pg.Crumbs = g.crumbs(root, p)
 	pg.Prev = g.link(root, p.Prev(), g.shortTitle(p.Prev()))
 	pg.Next = g.link(root, p.Next(), g.shortTitle(p.Next()))

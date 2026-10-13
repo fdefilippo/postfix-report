@@ -159,3 +159,28 @@ func (p Period) Path() string {
 		return "yearly/" + p.Key + ".html"
 	}
 }
+
+// PageRef identifies a report page: Kind is "day", "week", "month", "year"
+// or "index".
+type PageRef struct {
+	Kind string
+	Key  string
+}
+
+// DependentPages returns the pages whose content depends on the data of a
+// local day: the periods containing it, their neighbours (navigation links
+// and comparisons with the previous period) and the index.
+func DependentPages(day string, loc *time.Location) ([]PageRef, error) {
+	t, err := time.ParseInLocation("2006-01-02", day, loc)
+	if err != nil {
+		return nil, err
+	}
+	out := []PageRef{{"index", "index"}}
+	for _, k := range Kinds {
+		p := Of(k, t, loc)
+		for _, q := range []Period{p, p.Prev(), p.Next()} {
+			out = append(out, PageRef{string(k), q.Key})
+		}
+	}
+	return out, nil
+}

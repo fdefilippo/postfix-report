@@ -6,16 +6,19 @@
 package verify
 
 import (
+	"database/sql"
 	"fmt"
 	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/fdefilippo/postfix-report/internal/aggregate"
+	"github.com/fdefilippo/postfix-report/internal/period"
 	"github.com/fdefilippo/postfix-report/internal/store"
 )
 
@@ -108,7 +111,7 @@ func Run(db *store.DB, loc *time.Location, outDir string) (*Report, error) {
 
 	// Aggregates: recompute every day in memory and compare.
 	agg := &aggregate.Aggregator{DB: db, Loc: loc}
-	days, err := listDays(db)
+	days, err := listDays(db, loc)
 	if err != nil {
 		return nil, err
 	}
@@ -163,20 +166,37 @@ func countRows(db *store.DB, q string) (int, error) {
 	return n, rows.Err()
 }
 
-func listDays(db *store.DB) ([]string, error) {
-	rows, err := db.Query(`SELECT DISTINCT day FROM agg_hour ORDER BY day`)
+// listDays returns every local day of the observed range plus any day with
+// stored aggregates: a day with data but no aggregates is an inconsistency
+// that Compare detects.
+func listDays(db *store.DB, loc *time.Location) ([]string, error) {
+	seen := map[string]bool{}
+	var lo, hi sql.NullInt64
+	if err := db.QueryRow(`SELECT MIN(start_ts), MAX(end_ts) FROM segments`).Scan(&lo, &hi); err != nil {
+		return nil, err
+	}
+	if lo.Valid {
+		for d := period.Of(period.Day, time.Unix(lo.Int64, 0), loc); d.Start.Unix() <= hi.Int64; d = d.Next() {
+			seen[d.Key] = true
+		}
+	}
+	rows, err := db.Query(`SELECT DISTINCT day FROM agg_hour`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []string
 	for rows.Next() {
 		var d string
 		if err := rows.Scan(&d); err != nil {
 			return nil, err
 		}
+		seen[d] = true
+	}
+	out := make([]string, 0, len(seen))
+	for d := range seen {
 		out = append(out, d)
 	}
+	sort.Strings(out)
 	return out, rows.Err()
 }
 

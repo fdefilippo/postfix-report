@@ -103,6 +103,12 @@ func TestYearInferenceAndRollover(t *testing.T) {
 	if y := time.Unix(e3.TS, 0).In(loc).Year(); y != 2025 {
 		t.Errorf("e3 year %d", y)
 	}
+	// Month boundary: mtime 30 Sep 23:59:50, first line 1 Oct (clock skew).
+	c5 := NewClock(loc, 0, time.Date(2026, 9, 30, 23, 59, 50, 0, loc), nil)
+	e6 := mustParse(t, c5, "Oct  1 00:00:05 mx1 postfix/qmgr[1]: AAAAAAAAAA: removed")
+	if y := time.Unix(e6.TS, 0).In(loc).Year(); y != 2026 {
+		t.Errorf("month boundary year %d", y)
+	}
 	// Fixed year.
 	c3 := NewClock(loc, 2024, time.Time{}, nil)
 	e4 := mustParse(t, c3, "Feb 29 10:00:00 mx1 postfix/qmgr[1]: AAAAAAAAAA: removed")

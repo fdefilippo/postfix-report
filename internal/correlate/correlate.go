@@ -76,10 +76,11 @@ type pendingNotif struct {
 	ts       int64
 }
 
-// Run correlates the events not yet processed. minTS gives, per host, the
-// earliest newly imported event: if it precedes the host watermark the host
-// is re-correlated from scratch.
-func (c *Correlator) Run(ctx context.Context, minTS map[string]int64) (*Stats, error) {
+// Run correlates the events not yet processed. If events older than a host's
+// watermark were stored after it (backfill, or a previous run interrupted
+// between import and correlation), the host is re-correlated from scratch.
+// The condition is derived from the database, so it survives interruptions.
+func (c *Correlator) Run(ctx context.Context) (*Stats, error) {
 	st := &Stats{DirtyDays: map[string]bool{}}
 	hosts, err := c.hosts()
 	if err != nil {
@@ -90,9 +91,13 @@ func (c *Correlator) Run(ctx context.Context, minTS map[string]int64) (*Stats, e
 		if err != nil {
 			return nil, err
 		}
-		if m, ok := minTS[h]; ok && wmTS > 0 && m < wmTS {
+		var older sql.NullInt64
+		if err := c.DB.QueryRow(`SELECT MIN(ts) FROM events WHERE id > ? AND host = ? AND ts < ?`, wmID, h, wmTS).Scan(&older); err != nil {
+			return nil, err
+		}
+		if wmTS > 0 && older.Valid {
 			c.Log.Warn("events older than the correlation watermark: re-correlating host",
-				"host", h, "oldest_new", time.Unix(m, 0), "watermark", time.Unix(wmTS, 0))
+				"host", h, "oldest_new", time.Unix(older.Int64, 0), "watermark", time.Unix(wmTS, 0))
 			if err := c.reset(ctx, h, st); err != nil {
 				return nil, err
 			}
@@ -177,7 +182,7 @@ func (c *Correlator) reset(ctx context.Context, host string, st *Stats) error {
 				st.DirtyDays[d] = true
 			}
 		}
-		return nil
+		return store.MarkDirtyDays(tx, st.DirtyDays)
 	})
 }
 
@@ -723,9 +728,15 @@ func (hs *hostState) expireStale(now int64) {
 // flush writes the touched instances and recipients and records dirty days.
 func (hs *hostState) flush() error {
 	loc := hs.cfg().Location
+	days := map[string]bool{}
+	defer func() {
+		for d := range days {
+			hs.stats.DirtyDays[d] = true
+		}
+	}()
 	for in := range hs.touched {
 		if in.acceptedTS != 0 {
-			hs.stats.DirtyDays[period.DayKeyUnix(in.acceptedTS, loc)] = true
+			days[period.DayKeyUnix(in.acceptedTS, loc)] = true
 		}
 		if err := hs.saveInstance(in); err != nil {
 			return err
@@ -739,11 +750,11 @@ func (hs *hostState) flush() error {
 				return err
 			}
 			if r.finalTS != 0 {
-				hs.stats.DirtyDays[period.DayKeyUnix(r.finalTS, loc)] = true
+				days[period.DayKeyUnix(r.finalTS, loc)] = true
 			}
 			r.dirty = false
 		}
 		in.dirty = false
 	}
-	return nil
+	return store.MarkDirtyDays(hs.tx, days)
 }

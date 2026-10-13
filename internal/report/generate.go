@@ -136,8 +136,10 @@ func (g *Generator) GenerateAll(ctx context.Context) (*Result, error) {
 	if err := g.writeIndex(res); err != nil {
 		return res, err
 	}
-	_, err := g.DB.Exec(`DELETE FROM dirty_pages`)
-	return res, err
+	if _, err := g.DB.Exec(`DELETE FROM dirty_pages`); err != nil {
+		return res, err
+	}
+	return res, g.saveRange()
 }
 
 // GenerateOne writes a single period page (and the assets).
@@ -166,6 +168,9 @@ func (g *Generator) GenerateDirty(ctx context.Context) (*Result, error) {
 	if err := g.writeAssets(res); err != nil {
 		return res, err
 	}
+	if err := g.invalidateRangeChange(); err != nil {
+		return res, err
+	}
 	rows, err := g.DB.Query(`SELECT kind, key FROM dirty_pages ORDER BY kind, key`)
 	if err != nil {
 		return res, err
@@ -187,7 +192,9 @@ func (g *Generator) GenerateDirty(ctx context.Context) (*Result, error) {
 		}
 		if d[0] == "index" {
 			index = true
-		} else if p, err := period.Parse(period.Kind(d[0]), d[1], g.loc()); err == nil && g.inRange(p) && g.enabled(p.Kind) {
+			continue // removed only after the index is written
+		}
+		if p, err := period.Parse(period.Kind(d[0]), d[1], g.loc()); err == nil && g.inRange(p) && g.enabled(p.Kind) {
 			if err := g.writePeriod(p, res); err != nil {
 				return res, err
 			}
@@ -206,8 +213,52 @@ func (g *Generator) GenerateDirty(ctx context.Context) (*Result, error) {
 		if err := g.writeIndex(res); err != nil {
 			return res, err
 		}
+		if _, err := g.DB.Exec(`DELETE FROM dirty_pages WHERE kind='index'`); err != nil {
+			return res, err
+		}
 	}
-	return res, nil
+	return res, g.saveRange()
+}
+
+// rangeKey describes the data range for change detection.
+func (g *Generator) rangeKey() string {
+	if !g.hasData {
+		return ""
+	}
+	return g.firstDay.Key + ".." + g.lastDay.Key
+}
+
+func (g *Generator) saveRange() error { return store.SetMeta(g.DB, "report_range", g.rangeKey()) }
+
+// invalidateRangeChange marks as dirty the pages of every period that entered
+// the data range since the last generation (e.g. days inside a gap that is
+// now enclosed by data) and the pages at the old boundaries, whose
+// previous/next links change.
+func (g *Generator) invalidateRangeChange() error {
+	old, err := store.GetMeta(g.DB, "report_range")
+	if err != nil || old == g.rangeKey() || !g.hasData {
+		return err
+	}
+	var oldFirst, oldLast period.Period
+	known := false
+	if a, b, ok := strings.Cut(old, ".."); ok {
+		f, e1 := period.Parse(period.Day, a, g.loc())
+		l, e2 := period.Parse(period.Day, b, g.loc())
+		if e1 == nil && e2 == nil {
+			oldFirst, oldLast, known = f, l, true
+		}
+	}
+	for _, p := range g.AllPages() {
+		inOld := known && p.End.After(oldFirst.Start) && p.Start.Before(oldLast.End)
+		atEdge := known && (p.Contains(oldFirst.Start.Unix()) || p.Contains(oldLast.Start.Unix()))
+		if inOld && !atEdge {
+			continue
+		}
+		if _, err := g.DB.Exec(`INSERT OR IGNORE INTO dirty_pages(kind, key) VALUES(?,?)`, string(p.Kind), p.Key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (g *Generator) writePeriod(p period.Period, res *Result) error {
@@ -329,7 +380,7 @@ func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 // ---- index ----
 
 func (g *Generator) indexPage() (*Page, error) {
-	pg := g.basePage("", "Panoramica", "index")
+	pg := g.basePage("", "Panoramica", "index", g.lastDay.Start)
 	// Only the index shows the end of the data: period pages must not change
 	// when unrelated data arrives.
 	pg.DataAsOf = g.dataAsOf

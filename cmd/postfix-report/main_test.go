@@ -69,9 +69,10 @@ func TestCLIEndToEnd(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "www", "daily", "2026-09-30.html")); err != nil {
 		t.Error("daily page missing after update")
 	}
-	// A second update finds nothing new and rewrites nothing.
+	// A second update finds nothing new and rewrites only the index (which
+	// shows the time of the latest import).
 	code, out, _ = runCLI(t, "-config", cfg, "update")
-	if code != exitOK || !strings.Contains(out, "scritte: 0") {
+	if code != exitOK || !strings.Contains(out, "pagine elaborate: 1, scritte: 1") {
 		t.Errorf("second update: %d %s", code, out)
 	}
 	if code, out, _ = runCLI(t, "-config", cfg, "verify"); code != exitOK {
