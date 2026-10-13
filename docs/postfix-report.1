@@ -1,0 +1,183 @@
+.\" Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+.\" SPDX-License-Identifier: GPL-3.0-or-later
+.TH POSTFIX-REPORT 1 "ottobre 2026" "postfix-report 0.1" "Comandi utente"
+.SH NOME
+postfix-report \- statistiche di Postfix con storico SQLite e report HTML statici
+.SH SINTASSI
+.B postfix-report
+.RB [ \-config
+.IR file ]
+.I comando
+.RI [ opzioni ]
+.SH DESCRIZIONE
+.B postfix-report
+legge i log di Postfix (anche ruotati o compressi con gzip), conserva gli
+eventi in un database SQLite e genera report HTML statici giornalieri,
+settimanali (ISO 8601), mensili e annuali, consultabili da qualunque web
+server statico o via
+.IR file:// .
+.PP
+L'importazione è incrementale e idempotente: i file sono riconosciuti dal
+contenuto, quindi rotazioni, riletture e interruzioni non duplicano i dati.
+Le ore senza righe di log sono mostrate come dati assenti, mai come zero.
+I messaggi reiniettati da un content filter sono collegati all'originale e
+contati una sola volta.
+.SH COMANDI
+.TP
+.B update
+Importa i file indicati in
+.B input.paths
+e rigenera solo le pagine i cui dati sono cambiati.
+È il comando eseguito periodicamente dal timer systemd.
+.TP
+.BI "import \-\-file " file " \fR[\fB\-\-file \fIfile\fR ...] | \fB\-\-directory " dir
+Importa i file indicati, o tutti i file regolari di una directory, senza
+generare i report.
+.TP
+.B generate \fR[\fB\-\-all\fR | \fB\-\-date \fIAAAA-MM-GG\fR | \fB\-\-week \fIAAAA-Wss\fR | \fB\-\-month \fIAAAA-MM\fR | \fB\-\-year \fIAAAA\fR]
+Senza opzioni rigenera le pagine invalidate;
+.B \-\-all
+rigenera l'intero archivio, le altre opzioni una sola pagina.
+.TP
+.B rebuild
+Ricalcola correlazioni e aggregati dagli eventi memorizzati e rigenera tutti
+i report. Non rilegge i file di log.
+.TP
+.B verify
+Controlla integrità e coerenza del database, degli aggregati e dei report.
+.TP
+.B stats \fR[\fB\-\-from \fIAAAA-MM-GG\fR] [\fB\-\-to \fIAAAA-MM-GG\fR] [\fB\-\-json\fR]
+Stampa le metriche di un intervallo di giorni (default: tutti i dati).
+.TP
+.B check-config
+Valida il file di configurazione.
+.TP
+.B version
+Stampa la versione.
+.SH OPZIONI
+.TP
+.BI \-config " file"
+File di configurazione YAML. In assenza dell'opzione si usa la variabile
+.BR POSTFIX_REPORT_CONFIG ,
+altrimenti
+.IR /etc/postfix-report/config.yaml .
+.SH CONFIGURAZIONE
+Il file è in YAML; le chiavi sconosciute sono un errore.
+Le principali:
+.TP
+.B database.path
+Database SQLite. Contiene indirizzi e IP: non deve stare sotto la directory web.
+.TP
+.B input.paths
+File o glob da importare (anche
+.IR .gz ).
+.B input.timezone
+è il fuso dei timestamp senza offset;
+.B input.year
+fissa l'anno dei timestamp in formato BSD (0 = dedotto dalla data di modifica).
+.TP
+.B correlation.filter_transports\fR, \fBcorrelation.reinject_uids
+Trasporti del content filter e UID con cui il filtro reinietta i messaggi.
+.TP
+.B coverage.gap_threshold
+Distanza oltre la quale due righe consecutive delimitano un buco di copertura
+(default 60m).
+.TP
+.B output.directory\fR, \fBoutput.title
+Directory pubblicata dal web server e titolo dei report.
+.TP
+.B reports.daily\fR, \fBweekly\fR, \fBmonthly\fR, \fByearly\fR, \fBtop_limit
+Report da generare e righe per classifica.
+.TP
+.B privacy.anonymize_email\fR, \fBprivacy.anonymize_ip
+Pseudonimizzazione di indirizzi e utenti SASL, troncamento degli IP
+(disattivate di default).
+.PP
+L'esempio commentato completo è in
+.IR /usr/share/doc/postfix-report/config.example.yaml
+(o nel file installato in
+.IR /etc/postfix-report/config.yaml ).
+.SH STATO DI USCITA
+.TP
+.B 0
+Esecuzione riuscita.
+.TP
+.B 1
+Errore.
+.TP
+.B 2
+Errore di uso o di configurazione.
+.TP
+.B 3
+Un'altra esecuzione è in corso (lock): non è un errore.
+.TP
+.B 4
+.B verify
+ha trovato incoerenze.
+.TP
+.B 5
+Importazione parziale: alcuni file non erano leggibili.
+.SH FILE
+.TP
+.I /etc/postfix-report/config.yaml
+Configurazione.
+.TP
+.I /var/lib/postfix-report/report.db
+Database (con il lock
+.IR report.db.lock ).
+.TP
+.I /var/www/html/postfix-report/
+Report HTML.
+.TP
+.IR /usr/lib/systemd/system/postfix-report.service ", " postfix-report.timer
+Esecuzione oraria di
+.BR update .
+.SH ESEMPI
+Prima importazione e verifica, come utente di servizio:
+.PP
+.RS
+.nf
+runuser \-u postfix\-report \-\- postfix\-report update
+runuser \-u postfix\-report \-\- postfix\-report verify
+.fi
+.RE
+.PP
+Abilitazione dell'aggiornamento orario:
+.PP
+.RS
+.nf
+systemctl enable \-\-now postfix\-report.timer
+.fi
+.RE
+.PP
+Metriche di una settimana in JSON:
+.PP
+.RS
+.nf
+postfix\-report stats \-\-from 2026\-10\-05 \-\-to 2026\-10\-11 \-\-json
+.fi
+.RE
+.SH NOTE
+Il servizio deve poter leggere i log: su Enterprise Linux
+.I /var/log/maillog
+è
+.B root:root 0600
+e va reso leggibile all'utente
+.B postfix-report
+con un gruppo assegnato da rsyslog o con un'ACL.
+Le definizioni delle metriche sono in
+.IR METRICS.md ,
+i limiti noti in
+.IR LIMITATIONS.md
+(in
+.IR /usr/share/doc/postfix-report/ ).
+.SH AUTORE
+Francesco Defilippo <francesco@defilippo.org>
+.SH LICENZA
+GPL-3.0-or-later.
+.SH VEDERE ANCHE
+.BR systemd.timer (5),
+.BR rsyslog.conf (5),
+.BR postconf (5)
+.PP
+https://github.com/fdefilippo/postfix-report

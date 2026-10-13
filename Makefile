@@ -19,7 +19,7 @@ DIST_NAME      := $(BINARY)-$(RPM_VERSION)
 RPM_TOPDIR     ?= $(CURDIR)/dist/rpmbuild
 RPMBUILD_FLAGS ?=
 
-.PHONY: all build test test-short test-race bench vet fmt-check check validate demo install install-systemd uninstall dist rpm srpm clean
+.PHONY: all build test test-short test-race bench vet fmt-check check validate demo install install-systemd uninstall dist rpm srpm release-check clean
 
 all: check build
 
@@ -73,6 +73,8 @@ demo: build
 install: build
 	install -D -m 0755 bin/$(BINARY) $(DESTDIR)$(PREFIX)/bin/$(BINARY)
 	install -D -m 0640 config.example.yaml $(DESTDIR)/etc/postfix-report/config.yaml.example
+	install -D -m 0644 docs/postfix-report.1 $(DESTDIR)$(PREFIX)/share/man/man1/postfix-report.1
+	install -D -m 0644 config.example.yaml $(DESTDIR)$(PREFIX)/share/doc/postfix-report/config.example.yaml
 	install -D -m 0644 README.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/README.md
 	install -D -m 0644 METRICS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/METRICS.md
 	install -D -m 0644 LIMITATIONS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/LIMITATIONS.md
@@ -86,6 +88,7 @@ install-systemd:
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(BINARY)
+	rm -f $(DESTDIR)$(PREFIX)/share/man/man1/postfix-report.1
 	rm -rf $(DESTDIR)$(PREFIX)/share/doc/postfix-report
 
 # Source tarball for rpmbuild: files tracked by git (working-tree content,
@@ -112,6 +115,14 @@ srpm: dist
 	mkdir -p $(RPM_TOPDIR)/SOURCES
 	cp dist/$(DIST_NAME).tar.gz $(RPM_TOPDIR)/SOURCES/
 	rpmbuild -bs --define '_topdir $(RPM_TOPDIR)' $(RPMBUILD_FLAGS) $(RPM_SPEC)
+
+# Used by the release workflow: the tag (TAG=v0.1) must match the version in
+# the spec file and in the man page.
+release-check:
+	@test -n "$(TAG)" || { echo "usage: make release-check TAG=v<version>"; exit 1; }
+	@test "$(TAG)" = "v$(RPM_VERSION)" || { echo "tag $(TAG) does not match spec Version $(RPM_VERSION)"; exit 1; }
+	@grep -q '"postfix-report $(RPM_VERSION)"' docs/postfix-report.1 || { echo "docs/postfix-report.1: .TH version is not $(RPM_VERSION)"; exit 1; }
+	@echo "release $(TAG): ok"
 
 clean:
 	rm -rf bin dist

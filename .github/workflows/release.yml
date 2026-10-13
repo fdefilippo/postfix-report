@@ -1,0 +1,95 @@
+# Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Release: runs only when a tag v<version> is pushed (e.g. git tag v0.1 &&
+# git push origin v0.1). Builds the RPMs for Enterprise Linux 9 and 10 in
+# Oracle Linux containers, then creates the GitHub release with RPMs, SRPMs,
+# source tarball (with vendor/) and SHA256SUMS. The tag must match the
+# Version in packaging/rpm/postfix-report.spec and the man page.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  rpm:
+    name: RPM ${{ matrix.dist }}
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.image }}
+    strategy:
+      matrix:
+        include:
+          - dist: el9
+            image: docker.io/library/oraclelinux:9
+          - dist: el10
+            image: docker.io/library/oraclelinux:10
+    steps:
+      - name: Build dependencies
+        run: dnf -y install golang rpm-build systemd-rpm-macros git make tar gzip findutils
+
+      - uses: actions/checkout@v4
+
+      - name: Check tag and versions
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          make release-check TAG="$GITHUB_REF_NAME"
+
+      - name: Build RPM and SRPM
+        run: make rpm
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm-${{ matrix.dist }}
+          path: |
+            dist/rpmbuild/RPMS/*/*.rpm
+            dist/rpmbuild/SRPMS/*.rpm
+          if-no-files-found: error
+
+      - if: matrix.dist == 'el9'
+        uses: actions/upload-artifact@v4
+        with:
+          name: source
+          path: dist/postfix-report-*.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs: rpm
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Checksums
+        run: cd assets && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          cat > notes.md <<EOF
+          Pacchetti per Enterprise Linux (RHEL, AlmaLinux, Rocky, Oracle Linux):
+
+          \`\`\`
+          dnf install ./postfix-report-${version}-1.el9.x86_64.rpm    # EL9
+          dnf install ./postfix-report-${version}-1.el10.x86_64.rpm   # EL10
+          \`\`\`
+
+          Dopo l'installazione: permessi di lettura dei log, \`postfix-report check-config\`
+          e \`systemctl enable --now postfix-report.timer\` (vedi README e \`man postfix-report\`).
+          Il tarball dei sorgenti include \`vendor/\`: \`rpmbuild -ta\` non richiede la rete.
+          EOF
+          gh release create "$GITHUB_REF_NAME" assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "postfix-report $version" \
+            --notes-file notes.md \
+            --generate-notes \
+            --verify-tag
