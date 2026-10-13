@@ -46,11 +46,18 @@
 
 {{define "block"}}
 {{- if eq .Kind "section"}}
-<section class="section">
+<section class="section{{if .ID}} tabpanel{{end}}"{{if .ID}} id="{{.ID}}" role="tabpanel" aria-labelledby="tab-{{.ID}}"{{end}}>
   {{if .Title}}<h2>{{.Title}}</h2>{{end}}
   {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
   {{range .Children}}{{template "block" .}}{{end}}
 </section>
+{{- else if eq .Kind "tabs"}}
+<div class="tabs">
+  <div class="tablist" role="tablist" aria-label="Sezioni della pagina" hidden>
+    {{- range .Children}}<button type="button" role="tab" id="tab-{{.ID}}" aria-controls="{{.ID}}" aria-selected="false" tabindex="-1">{{.Title}}</button>{{end -}}
+  </div>
+  {{- range .Children}}{{template "block" .}}{{end}}
+</div>
 {{- else if eq .Kind "grid"}}
 <div class="grid">{{range .Children}}{{template "block" .}}{{end}}</div>
 {{- else if eq .Kind "card"}}

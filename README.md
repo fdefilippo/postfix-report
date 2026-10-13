@@ -20,6 +20,22 @@ oppure direttamente via `file://`.
   file `.gz`, riletture, sovrapposizioni e interruzioni non duplicano i dati.
 * **Rigenerazione selettiva**: si riscrivono solo le pagine i cui dati sono
   cambiati, con sostituzione atomica dei file.
+* **Pagine a schede**: gli indicatori del periodo restano in alto; il resto è
+  diviso in schede (traffico, confronto, tempi di consegna, mittenti e
+  destinatari, rifiuti ed errori, sicurezza, copertura). La scheda scelta resta
+  attiva passando a un altro report ed è indicata nell'URL (`#rifiuti-ed-errori`).
+  Senza JavaScript e in stampa le sezioni compaiono tutte, una sotto l'altra.
+
+![Report giornaliero, scheda Traffico (dati sintetici)](docs/screenshots/giornaliero.png)
+
+<details>
+<summary>Altre schermate (dati sintetici)</summary>
+
+![Report mensile, scheda Rifiuti ed errori](docs/screenshots/mensile-rifiuti.png)
+
+![Panoramica con l'archivio](docs/screenshots/panoramica-archivio.png)
+
+</details>
 
 Analisi dei formati osservati: [LOG_ANALYSIS.md](LOG_ANALYSIS.md) · Limiti noti:
 [LIMITATIONS.md](LIMITATIONS.md) · Report dimostrativi (dati sintetici):

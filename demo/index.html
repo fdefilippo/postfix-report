@@ -19,7 +19,7 @@
       <h1>Panoramica</h1><p class="sub">Dati dal 01/12/2025 00:00:00 al 13/02/2026 23:55:44</p>
     </div>
   </div>
-  <div class="banner ok" role="status">Ultimo aggiornamento: 13/10/2026 13:18:48 (update, esito ok; 315.190 righe lette, 304.696 eventi nuovi, 0 duplicati ignorati).</div>
+  <div class="banner ok" role="status">Ultimo aggiornamento: 13/10/2026 14:56:24 (update, esito ok; 315.190 righe lette, 304.696 eventi nuovi, 0 duplicati ignorati).</div>
   
 <section class="section">
   <h2>Totali dell&#39;archivio</h2>
@@ -90,12 +90,14 @@
 
 </section>
 
-<section class="section">
-  <h2>Traffico degli ultimi sette giorni disponibili</h2>
+<div class="tabs">
+  <div class="tablist" role="tablist" aria-label="Sezioni della pagina" hidden><button type="button" role="tab" id="tab-ultimi-sette-giorni" aria-controls="ultimi-sette-giorni" aria-selected="false" tabindex="-1">Ultimi sette giorni</button><button type="button" role="tab" id="tab-archivio" aria-controls="archivio" aria-selected="false" tabindex="-1">Archivio</button><button type="button" role="tab" id="tab-report-e-acquisizioni" aria-controls="report-e-acquisizioni" aria-selected="false" tabindex="-1">Report e acquisizioni</button><button type="button" role="tab" id="tab-qualita-dei-dati" aria-controls="qualita-dei-dati" aria-selected="false" tabindex="-1">Qualità dei dati</button></div>
+<section class="section tabpanel" id="ultimi-sette-giorni" role="tabpanel" aria-labelledby="tab-ultimi-sette-giorni">
+  <h2>Ultimi sette giorni</h2>
   <p class="note">Giorni con almeno una riga di log; clic su un giorno per il dettaglio.</p>
   
 <div class="card">
-  
+  <h3>Traffico degli ultimi sette giorni disponibili</h3>
   
   
 <div class="chart-wrap">
@@ -131,8 +133,51 @@
 
 </section>
 
-<section class="section">
-  <h2>Report recenti e acquisizioni</h2>
+<section class="section tabpanel" id="archivio" role="tabpanel" aria-labelledby="tab-archivio">
+  <h2>Archivio</h2>
+  <p class="note">Mesi e anni disponibili; il numero indica i messaggi accettati.</p>
+  
+<div class="archive">
+  <div class="card">
+    <h3><a href="yearly/2025.html">2025</a> <span class="muted">· 9.755 messaggi</span></h3>
+    <div class="months">
+      <span>gen<small>—</small></span>
+      <span>feb<small>—</small></span>
+      <span>mar<small>—</small></span>
+      <span>apr<small>—</small></span>
+      <span>mag<small>—</small></span>
+      <span>giu<small>—</small></span>
+      <span>lug<small>—</small></span>
+      <span>ago<small>—</small></span>
+      <span>set<small>—</small></span>
+      <span>ott<small>—</small></span>
+      <span>nov<small>—</small></span>
+      <a href="monthly/2025-12.html" class="partial" title="partial">dic<small>9.755</small></a>
+    </div>
+  </div>
+  <div class="card">
+    <h3><a href="yearly/2026.html">2026</a> <span class="muted">· 13.824 messaggi</span></h3>
+    <div class="months">
+      <a href="monthly/2026-01.html" class="partial" title="partial">gen<small>9.589</small></a>
+      <a href="monthly/2026-02.html" class="partial" title="partial">feb<small>4.235</small></a>
+      <span>mar<small>—</small></span>
+      <span>apr<small>—</small></span>
+      <span>mag<small>—</small></span>
+      <span>giu<small>—</small></span>
+      <span>lug<small>—</small></span>
+      <span>ago<small>—</small></span>
+      <span>set<small>—</small></span>
+      <span>ott<small>—</small></span>
+      <span>nov<small>—</small></span>
+      <span>dic<small>—</small></span>
+    </div>
+  </div>
+</div>
+
+</section>
+
+<section class="section tabpanel" id="report-e-acquisizioni" role="tabpanel" aria-labelledby="tab-report-e-acquisizioni">
+  <h2>Report e acquisizioni</h2>
   
   
 <div class="grid">
@@ -189,50 +234,7 @@
 
 </section>
 
-<section class="section">
-  <h2>Archivio</h2>
-  <p class="note">Mesi e anni disponibili; il numero indica i messaggi accettati.</p>
-  
-<div class="archive">
-  <div class="card">
-    <h3><a href="yearly/2025.html">2025</a> <span class="muted">· 9.755 messaggi</span></h3>
-    <div class="months">
-      <span>gen<small>—</small></span>
-      <span>feb<small>—</small></span>
-      <span>mar<small>—</small></span>
-      <span>apr<small>—</small></span>
-      <span>mag<small>—</small></span>
-      <span>giu<small>—</small></span>
-      <span>lug<small>—</small></span>
-      <span>ago<small>—</small></span>
-      <span>set<small>—</small></span>
-      <span>ott<small>—</small></span>
-      <span>nov<small>—</small></span>
-      <a href="monthly/2025-12.html" class="partial" title="partial">dic<small>9.755</small></a>
-    </div>
-  </div>
-  <div class="card">
-    <h3><a href="yearly/2026.html">2026</a> <span class="muted">· 13.824 messaggi</span></h3>
-    <div class="months">
-      <a href="monthly/2026-01.html" class="partial" title="partial">gen<small>9.589</small></a>
-      <a href="monthly/2026-02.html" class="partial" title="partial">feb<small>4.235</small></a>
-      <span>mar<small>—</small></span>
-      <span>apr<small>—</small></span>
-      <span>mag<small>—</small></span>
-      <span>giu<small>—</small></span>
-      <span>lug<small>—</small></span>
-      <span>ago<small>—</small></span>
-      <span>set<small>—</small></span>
-      <span>ott<small>—</small></span>
-      <span>nov<small>—</small></span>
-      <span>dic<small>—</small></span>
-    </div>
-  </div>
-</div>
-
-</section>
-
-<section class="section">
+<section class="section tabpanel" id="qualita-dei-dati" role="tabpanel" aria-labelledby="tab-qualita-dei-dati">
   <h2>Qualità dei dati</h2>
   
   
@@ -408,9 +410,11 @@
 
 </section>
 
+</div>
+
 </main>
 <footer>
-  <p>Dati fino a 13/02/2026 23:55:44 · Generato il 13/10/2026 13:19:08 · postfix-report 1d8a0d3-dirty</p>
+  <p>Dati fino a 13/02/2026 23:55:44 · Generato il 13/10/2026 14:56:43 · postfix-report 0.1</p>
   <p class="noprint">I conteggi indicano sempre l'unità: messaggi, destinatari, tentativi, eventi o sessioni. Definizioni in METRICS.md.</p>
 </footer>
 <script src="assets/js/report.js"></script>

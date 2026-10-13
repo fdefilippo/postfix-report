@@ -601,6 +601,67 @@ func section(title, note string, children ...Block) Block {
 	return Block{Kind: "section", Title: title, Note: note, Children: children}
 }
 
+// tabs groups sections into a tab set: the browser shows one section at a
+// time, all of them without JavaScript and when printing. A section title is
+// its tab label and, as a slug, the panel id (#id selects the tab). Empty
+// sections are dropped.
+func tabs(sections ...Block) Block {
+	var c []Block
+	for _, s := range sections {
+		if s.Kind == "" || isEmpty(s) {
+			continue
+		}
+		s.ID = slug(s.Title)
+		c = append(c, s)
+	}
+	return Block{Kind: "tabs", Children: c}
+}
+
+// isEmpty reports whether a container block has no content at all.
+func isEmpty(b Block) bool {
+	switch b.Kind {
+	case "section", "grid", "card", "tabs":
+		for _, c := range b.Children {
+			if !isEmpty(c) {
+				return false
+			}
+		}
+		return true
+	}
+	return b.Kind == ""
+}
+
+// slug turns an Italian title into an ASCII identifier ("Rifiuti ed
+// errori" → "rifiuti-ed-errori").
+func slug(s string) string {
+	var b strings.Builder
+	dash := false
+	for _, r := range strings.ToLower(s) {
+		switch r {
+		case 'à', 'á':
+			r = 'a'
+		case 'è', 'é':
+			r = 'e'
+		case 'ì', 'í':
+			r = 'i'
+		case 'ò', 'ó':
+			r = 'o'
+		case 'ù', 'ú':
+			r = 'u'
+		}
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			if dash && b.Len() > 0 {
+				b.WriteByte('-')
+			}
+			b.WriteRune(r)
+			dash = false
+		} else {
+			dash = true
+		}
+	}
+	return b.String()
+}
+
 func grid(children ...Block) Block {
 	var c []Block
 	for _, b := range children {
@@ -717,20 +778,27 @@ func (g *Generator) dayBlocks(pg *Page, pd *periodData) error {
 	if err != nil {
 		return err
 	}
-	pg.Blocks = append(pg.Blocks,
-		section("Indicatori del giorno", "Variazione rispetto al giorno precedente, solo se entrambi i giorni sono interamente osservati.",
-			g.kpis(pd.totals, prev.totals, pd.cov.Status == query.Complete && prev.cov.Status == query.Complete)),
-		section("Traffico orario", "Ore locali 00–23. Le ore senza dati sono tratteggiate e non valgono zero.",
-			card("", "", g.bucketChart("hourly", "Traffico orario", "bar", "", pd.children, labels, hourShort(pd.children), nil, vals, trafficSeries))),
-	)
 	delays, err := g.delayTable("delays", pd.p.Start.Unix(), pd.p.End.Unix())
 	if err != nil {
 		return err
 	}
 	vol := g.bucketChart("volume", "Volume orario", "bar", "bytes", pd.children, labels, hourShort(pd.children), nil, vals,
 		[]seriesDef{{"Volume accettato", ag.MBytes, colBytes}})
-	pg.Blocks = append(pg.Blocks, section("Volume e prestazioni", "", grid(card("Volume orario (byte accettati)", "", vol), delays)))
-	return g.commonTail(pg, pd)
+	comp, tail, err := g.tailSections(pd)
+	if err != nil {
+		return err
+	}
+	pg.Blocks = append(pg.Blocks,
+		section("Indicatori del giorno", "Variazione rispetto al giorno precedente, solo se entrambi i giorni sono interamente osservati.",
+			g.kpis(pd.totals, prev.totals, pd.cov.Status == query.Complete && prev.cov.Status == query.Complete)),
+		tabs(append([]Block{
+			section("Traffico", "Ore locali 00–23. Le ore senza dati sono tratteggiate e non valgono zero.",
+				card("Traffico orario", "", g.bucketChart("hourly", "Traffico orario", "bar", "", pd.children, labels, hourShort(pd.children), nil, vals, trafficSeries)),
+				grid(card("Volume orario (byte accettati)", "", vol), comp)),
+			section("Tempi di consegna", "", delays),
+		}, tail...)...),
+	)
+	return nil
 }
 
 func hourShort(b []query.Bucket) []string {
@@ -741,22 +809,53 @@ func hourShort(b []query.Bucket) []string {
 	return s
 }
 
-// commonTail appends rankings, security and composition sections.
-func (g *Generator) commonTail(pg *Page, pd *periodData) error {
-	ranks, err := g.rankingCards(string(pd.p.Kind), pd.days, rankings)
+// Rankings grouped by tab.
+var (
+	rankTraffic  = pickRankings(ag.DSenderDomain, ag.DRcptDomain, ag.DClientIP, ag.DRelay)
+	rankErrors   = pickRankings(ag.DRejectReason, ag.DRejectIP, ag.DDeferReason, ag.DBounceReason)
+	rankSecurity = pickRankings(ag.DSASLUser, ag.DSASLFailIP)
+)
+
+func pickRankings(dims ...string) []rankDef {
+	var out []rankDef
+	for _, d := range dims {
+		for _, r := range rankings {
+			if r.dim == d {
+				out = append(out, r)
+			}
+		}
+	}
+	return out
+}
+
+// tailSections returns the tabs shared by every period page (rankings,
+// security, coverage) and, separately, the traffic composition card, which
+// belongs to the page's own traffic tab.
+func (g *Generator) tailSections(pd *periodData) (Block, []Block, error) {
+	kind := string(pd.p.Kind)
+	note := fmt.Sprintf("Primi %d valori per categoria; tabelle ordinabili e filtrabili.", g.Cfg.Reports.TopLimit)
+	traffic, err := g.rankingCards(kind, pd.days, rankTraffic)
 	if err != nil {
-		return err
+		return Block{}, nil, err
+	}
+	errs, err := g.rankingCards(kind, pd.days, rankErrors)
+	if err != nil {
+		return Block{}, nil, err
+	}
+	sec, err := g.rankingCards(kind, pd.days, rankSecurity)
+	if err != nil {
+		return Block{}, nil, err
 	}
 	comp, err := g.compositionCard(pd.days)
 	if err != nil {
-		return err
+		return Block{}, nil, err
 	}
-	pg.Blocks = append(pg.Blocks,
-		section("Classifiche", fmt.Sprintf("Primi %d valori per categoria; tabelle ordinabili e filtrabili.", g.Cfg.Reports.TopLimit), grid(ranks...)),
-		section("Sicurezza e composizione", "", grid(g.securityCard(pd.totals), comp)),
+	return comp, []Block{
+		section("Mittenti e destinatari", note, grid(traffic...)),
+		section("Rifiuti ed errori", note, grid(errs...)),
+		section("Sicurezza", "", grid(append([]Block{g.securityCard(pd.totals)}, sec...)...)),
 		section("Copertura", "", g.coverageTable(pd)),
-	)
-	return nil
+	}, nil
 }
 
 func (g *Generator) dayLinks(root string, buckets []query.Bucket) []string {
@@ -824,16 +923,23 @@ func (g *Generator) weekBlocks(pg *Page, pd *periodData) error {
 	if err != nil {
 		return err
 	}
+	comp, tail, err := g.tailSections(pd)
+	if err != nil {
+		return err
+	}
 	pg.Blocks = append(pg.Blocks,
 		section("Indicatori della settimana", "Variazione rispetto alla settimana precedente, solo se entrambe sono interamente osservate.", g.kpis(pd.totals, prev.totals, comparable)),
-		section("Traffico giornaliero", "Da lunedì a domenica (settimana ISO 8601). Clic su un giorno per aprire il report giornaliero.",
-			card("", "", g.bucketChart("daily", "Traffico giornaliero", "bar", "", pd.children, labels, short, links, vals, trafficSeries))),
-		section("Distribuzione oraria aggregata", "Somma, per ora del giorno, dei giorni osservati della settimana.",
-			card("", "", g.bucketChart("hourdist", "Distribuzione oraria", "bar", "", hb, hl, hourShort(hb), nil, byHour[:], trafficSeries))),
-		section("Confronto e ritardi", "", grid(g.comparison(pd, prev, "settimana "+prev.p.Key), delays)),
-		section("Andamento dei ritardi", "", card("", "", trend)),
+		tabs(append([]Block{
+			section("Traffico", "Da lunedì a domenica (settimana ISO 8601).",
+				card("Traffico giornaliero", "Clic su un giorno per aprire il report giornaliero.",
+					g.bucketChart("daily", "Traffico giornaliero", "bar", "", pd.children, labels, short, links, vals, trafficSeries)),
+				grid(card("Distribuzione oraria aggregata", "Somma, per ora del giorno, dei giorni osservati della settimana.",
+					g.bucketChart("hourdist", "Distribuzione oraria", "bar", "", hb, hl, hourShort(hb), nil, byHour[:], trafficSeries)), comp)),
+			section("Confronto", "", g.comparison(pd, prev, "settimana "+prev.p.Key)),
+			section("Tempi di consegna", "", delays, card("Andamento dei ritardi", "", trend)),
+		}, tail...)...),
 	)
-	return g.commonTail(pg, pd)
+	return nil
 }
 
 // aggregatedHourBuckets returns 24 buckets whose status summarizes the
@@ -883,15 +989,22 @@ func (g *Generator) monthBlocks(pg *Page, pd *periodData) error {
 	if err != nil {
 		return err
 	}
+	comp, tail, err := g.tailSections(pd)
+	if err != nil {
+		return err
+	}
 	pg.Blocks = append(pg.Blocks,
 		section("Indicatori del mese", "Variazione rispetto al mese precedente, solo se entrambi sono interamente osservati.", g.kpis(pd.totals, prev.totals, comparable)),
-		section("Traffico per giorno", "Clic su un giorno per aprire il report giornaliero.",
-			card("", "", g.bucketChart("daily", "Traffico per giorno", "bar", "", pd.children, labels, short, links, vals, trafficSeries))),
-		section("Confronto e tempi di consegna", "", grid(g.comparison(pd, prev, monthNames[prev.p.Start.Month()-1]+" "+prev.p.Start.Format("2006")), delays)),
-		section("Andamento dei ritardi", "", card("", "", trend)),
-		section("Giorni e giorni della settimana", "", grid(g.topDays(pd, vals, labels, links), g.weekdayTable(pd, vals))),
+		tabs(append([]Block{
+			section("Traffico", "",
+				card("Traffico per giorno", "Clic su un giorno per aprire il report giornaliero.",
+					g.bucketChart("daily", "Traffico per giorno", "bar", "", pd.children, labels, short, links, vals, trafficSeries)),
+				grid(g.topDays(pd, vals, labels, links), g.weekdayTable(pd, vals)), comp),
+			section("Confronto", "", g.comparison(pd, prev, monthNames[prev.p.Start.Month()-1]+" "+prev.p.Start.Format("2006"))),
+			section("Tempi di consegna", "", delays, card("Andamento dei ritardi", "", trend)),
+		}, tail...)...),
 	)
-	return g.commonTail(pg, pd)
+	return nil
 }
 
 func (g *Generator) topDays(pd *periodData, vals []query.Metrics, labels, links []string) Block {
@@ -1010,17 +1123,24 @@ func (g *Generator) yearBlocks(pg *Page, pd *periodData) error {
 		}
 		summary.Rows = append(summary.Rows, r)
 	}
+	comp, tail, err := g.tailSections(pd)
+	if err != nil {
+		return err
+	}
 	pg.Blocks = append(pg.Blocks,
 		section("Indicatori dell'anno", "Variazione rispetto all'anno precedente, solo se entrambi sono interamente osservati.", g.kpis(pd.totals, prev.totals, comparable)),
-		section("Messaggi per mese", "Clic su un mese per aprire il report mensile.",
-			card("", "", g.bucketChart("monthly", "Traffico mensile", "bar", "", pd.children, labels, short, links, vals, trafficSeries))),
-		section("Andamento di rifiuti, differimenti e fallimenti", "",
-			card("", "", g.bucketChart("trend", "Anomalie mensili", "line", "", pd.children, labels, short, links, vals, trafficSeries[2:]))),
-		section("Volume mensile", "", card("", "", g.bucketChart("volume", "Volume mensile", "bar", "bytes", pd.children, labels, short, links, vals,
-			[]seriesDef{{"Volume accettato", ag.MBytes, colBytes}}))),
-		section("Confronto e tempi di consegna", "", grid(g.comparison(pd, prev, "anno "+prev.p.Key), delays)),
-		section("Tempi medi e percentili per mese", "", card("", "", trend)),
-		section("Riepilogo dei dodici mesi", "", card("", "", Block{Kind: "table", Table: summary})),
+		tabs(append([]Block{
+			section("Traffico", "",
+				card("Messaggi per mese", "Clic su un mese per aprire il report mensile.",
+					g.bucketChart("monthly", "Traffico mensile", "bar", "", pd.children, labels, short, links, vals, trafficSeries)),
+				grid(card("Andamento di rifiuti, differimenti e fallimenti", "",
+					g.bucketChart("trend", "Anomalie mensili", "line", "", pd.children, labels, short, links, vals, trafficSeries[2:])),
+					card("Volume mensile", "", g.bucketChart("volume", "Volume mensile", "bar", "bytes", pd.children, labels, short, links, vals,
+						[]seriesDef{{"Volume accettato", ag.MBytes, colBytes}}))), comp),
+			section("Riepilogo mensile", "", card("Riepilogo dei dodici mesi", "", Block{Kind: "table", Table: summary})),
+			section("Confronto", "", g.comparison(pd, prev, "anno "+prev.p.Key)),
+			section("Tempi di consegna", "", delays, card("Tempi medi e percentili per mese", "", trend)),
+		}, tail...)...),
 	)
-	return g.commonTail(pg, pd)
+	return nil
 }

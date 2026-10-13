@@ -124,6 +124,54 @@ func TestGenerateAllLinksAndOffline(t *testing.T) {
 	}
 }
 
+// TestTabs checks that every page groups its sections into tabs whose
+// buttons point to existing panels, with unique ids, and that the KPIs stay
+// outside the tabs.
+func TestTabs(t *testing.T) {
+	env, _, g := fixture(t)
+	if _, err := g.GenerateAll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	common := []string{"Mittenti e destinatari", "Rifiuti ed errori", "Sicurezza", "Copertura"}
+	want := map[string][]string{
+		"daily/2026-01-12.html": append([]string{"Traffico", "Tempi di consegna"}, common...),
+		"weekly/2026-W01.html":  append([]string{"Traffico", "Confronto", "Tempi di consegna"}, common...),
+		"monthly/2026-01.html":  append([]string{"Traffico", "Confronto", "Tempi di consegna"}, common...),
+		"yearly/2026.html":      append([]string{"Traffico", "Riepilogo mensile", "Confronto", "Tempi di consegna"}, common...),
+		"index.html":            {"Ultimi sette giorni", "Archivio", "Report e acquisizioni", "Qualità dei dati"},
+		"daily/2025-12-15.html": nil, // no data: coverage only, no tabs
+	}
+	tabRe := regexp.MustCompile(`<button type="button" role="tab" id="tab-([^"]+)" aria-controls="([^"]+)"[^>]*>([^<]+)</button>`)
+	idRe := regexp.MustCompile(` id="([^"]+)"`)
+	for p, labels := range want {
+		body := read(t, env, p)
+		tabs := tabRe.FindAllStringSubmatch(body, -1)
+		var got []string
+		for _, m := range tabs {
+			got = append(got, m[3])
+			if m[1] != m[2] {
+				t.Errorf("%s: tab %q controls %q", p, m[1], m[2])
+			}
+			if !strings.Contains(body, `id="`+m[2]+`" role="tabpanel" aria-labelledby="tab-`+m[2]+`"`) {
+				t.Errorf("%s: panel %q missing", p, m[2])
+			}
+		}
+		if strings.Join(got, "|") != strings.Join(labels, "|") {
+			t.Errorf("%s: tabs %q, want %q", p, got, labels)
+		}
+		seen := map[string]bool{}
+		for _, m := range idRe.FindAllStringSubmatch(body, -1) {
+			if seen[m[1]] {
+				t.Errorf("%s: duplicate id %q", p, m[1])
+			}
+			seen[m[1]] = true
+		}
+		if labels != nil && strings.Index(body, `class="kpis"`) > strings.Index(body, `class="tabs"`) {
+			t.Errorf("%s: KPIs inside the tabs", p)
+		}
+	}
+}
+
 func TestMissingAndPartialPeriods(t *testing.T) {
 	env, _, g := fixture(t)
 	if _, err := g.GenerateAll(ctx); err != nil {
@@ -355,5 +403,22 @@ func TestFileURLInBrowser(t *testing.T) {
 		if strings.Contains(dom, "Grafico non disponibile") {
 			t.Errorf("%s: chart error", p)
 		}
+		// Tabs active: bar shown, one panel visible, the others hidden.
+		if !strings.Contains(dom, `class="tabs ready"`) || strings.Count(dom, `aria-selected="true"`) != 1 {
+			t.Errorf("%s: tabs not initialized", p)
+		}
+		if n, h := strings.Count(dom, `role="tabpanel"`), strings.Count(dom, `role="tabpanel" aria-labelledby="tab-`); n != h || n < 2 {
+			t.Errorf("%s: %d panels", p, n)
+		}
+	}
+	// The fragment selects a tab, and its charts get the real width.
+	u := "file://" + path.Join(filepath.ToSlash(env.Cfg.Output.Directory), "daily/2026-01-12.html") + "#tempi-di-consegna"
+	out, err := exec.Command(bin, "--headless=new", "--no-sandbox", "--disable-gpu", "--user-data-dir="+t.TempDir(),
+		"--virtual-time-budget=3000", "--dump-dom", u).Output()
+	if err != nil {
+		t.Fatalf("%s: %v", bin, err)
+	}
+	if !strings.Contains(string(out), `id="tab-tempi-di-consegna" aria-controls="tempi-di-consegna" aria-selected="true"`) {
+		t.Errorf("fragment #tempi-di-consegna did not select its tab")
 	}
 }

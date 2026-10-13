@@ -51,10 +51,12 @@ type Banner struct {
 }
 
 // Block is a page component. Exactly one of the content fields is used,
-// according to Kind: "section" (Children), "grid" (Children), "card"
-// (Children), "kpis", "chart", "table", "archive", "text".
+// according to Kind: "section" (Children), "tabs" (Children: sections with
+// an ID, shown one at a time), "grid" (Children), "card" (Children),
+// "kpis", "chart", "table", "archive", "text".
 type Block struct {
 	Kind     string
+	ID       string // sections inside "tabs": panel id, also the URL fragment
 	Title    string
 	Note     string
 	Text     string

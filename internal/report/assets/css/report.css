@@ -77,6 +77,27 @@ h1 { font-size: 22px; margin: 0; font-weight: 650; }
 .card > h3 { margin: 0 0 8px; font-size: 13.5px; font-weight: 650; }
 .card > .note { color: var(--muted); font-size: 12px; margin: -4px 0 8px; }
 
+/* tabs: without JavaScript the tab bar stays hidden and every panel shows */
+.tabs { margin-top: 18px; }
+.tablist {
+  display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--line);
+}
+.tablist[hidden] { display: none; }
+.tablist [role="tab"] {
+  font: inherit; font-size: 13px; color: var(--muted); background: none; cursor: pointer;
+  border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0;
+  padding: 7px 14px; margin-bottom: -1px; white-space: nowrap;
+}
+.tablist [role="tab"]:hover { color: var(--ink); background: #e9edf2; }
+.tablist [role="tab"][aria-selected="true"] {
+  color: var(--ink); background: var(--panel); border-color: var(--line); font-weight: 600;
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.tablist [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tabs.ready > .tabpanel { margin-top: 12px; }
+.tabs.ready > .tabpanel > h2 { display: none; }
+.tabpanel > .card + .grid, .tabpanel > .card + .card, .tabpanel > .grid + .card { margin-top: 12px; }
+
 /* KPI tiles */
 .kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 .kpi {
@@ -167,7 +188,7 @@ table.sortable th[aria-sort="descending"]::after { content: " ▼"; font-size: 1
 }
 .months span { color: #b2bcc7; background: #f7f9fb; }
 .months a.partial { border-color: #f2d49b; }
-.months a small { display: block; color: var(--muted); font-size: 10.5px; }
+.months small { display: block; color: var(--muted); font-size: 10.5px; }
 
 footer { max-width: 1280px; margin: 0 auto; padding: 0 20px 30px; color: var(--muted); font-size: 12px; }
 
@@ -178,6 +199,7 @@ footer { max-width: 1280px; margin: 0 auto; padding: 0 20px 30px; color: var(--m
   .kpi .value { font-size: 18px; }
   h1 { font-size: 19px; }
   .topbar { padding: 8px 12px; }
+  .tablist { flex-wrap: nowrap; overflow-x: auto; }
 }
 
 @media print {
@@ -189,4 +211,7 @@ footer { max-width: 1280px; margin: 0 auto; padding: 0 20px 30px; color: var(--m
   details.data[open] summary { display: none; }
   a { color: inherit; }
   .tooltip { display: none !important; }
+  .tablist { display: none !important; }
+  .tabpanel[hidden] { display: block !important; }
+  .tabs.ready > .tabpanel > h2 { display: block; }
 }

@@ -125,6 +125,9 @@
 
   Chart.prototype.draw = function () {
     var spec = this.spec, c = this.c;
+    // In a hidden tab the width is unknown: keep the current drawing, the
+    // chart is redrawn when its tab is shown.
+    if (!c.clientWidth && c.firstChild) return;
     c.innerHTML = "";
     var W = Math.max(c.clientWidth || 600, 280), H = spec.height || 260;
     var m = { l: 56, r: 12, t: 12, b: spec.labels.length > 16 ? 44 : 30 };
@@ -245,7 +248,7 @@
       var src = document.getElementById(c.getAttribute("data-chart"));
       if (!src) return;
       try {
-        new Chart(c, JSON.parse(src.textContent));
+        c.chart = new Chart(c, JSON.parse(src.textContent));
       } catch (e) {
         c.textContent = "Grafico non disponibile: " + e.message;
       }
@@ -298,9 +301,91 @@
     });
   }
 
+  /* ---------- tabs ---------- */
+  // One panel at a time. The selected tab is in the URL fragment (#id) and,
+  // for the next page opened, in localStorage: moving to the previous day
+  // keeps the same tab. Without JavaScript every panel is shown.
+  var TAB_KEY = "postfix-report.tab";
+
+  function store(v) {
+    try {
+      if (v === undefined) return window.localStorage.getItem(TAB_KEY);
+      window.localStorage.setItem(TAB_KEY, v);
+    } catch (e) { /* storage unavailable: no memory between pages */ }
+    return null;
+  }
+
+  function initTabs() {
+    var sets = [];
+    Array.prototype.forEach.call(document.querySelectorAll(".tabs"), function (box) {
+      var list = box.querySelector("[role=tablist]");
+      var tabs = Array.prototype.slice.call(list.querySelectorAll("[role=tab]"));
+      if (!tabs.length) return;
+      var panel = function (t) { return document.getElementById(t.getAttribute("aria-controls")); };
+      var select = function (t, focus, remember) {
+        tabs.forEach(function (o) {
+          var on = o === t;
+          o.setAttribute("aria-selected", on ? "true" : "false");
+          o.tabIndex = on ? 0 : -1;
+          panel(o).hidden = !on;
+        });
+        Array.prototype.forEach.call(panel(t).querySelectorAll("[data-chart]"), function (c) {
+          if (c.chart) c.chart.draw();
+        });
+        if (focus) t.focus();
+        if (remember) {
+          var id = t.getAttribute("aria-controls");
+          store(id);
+          if (window.history && history.replaceState) history.replaceState(null, "", "#" + id);
+        }
+      };
+      tabs.forEach(function (t, i) {
+        t.addEventListener("click", function () { select(t, false, true); });
+        t.addEventListener("keydown", function (ev) {
+          var j = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[ev.key];
+          if (j === undefined) return;
+          ev.preventDefault();
+          select(tabs[(j + tabs.length) % tabs.length], true, true);
+        });
+      });
+      // The tab holding an element id (a panel or anything inside it).
+      var byId = function (id) {
+        var e = id && document.getElementById(id);
+        while (e && e !== box) {
+          if (e.getAttribute("role") === "tabpanel") {
+            for (var k = 0; k < tabs.length; k++) if (panel(tabs[k]) === e) return tabs[k];
+          }
+          e = e.parentNode;
+        }
+        return null;
+      };
+      // A fragment selects its tab; the browser has already scrolled to it
+      // while every panel was visible, so scroll again to the tab bar.
+      var fromHash = function () {
+        var t = byId(decodeURIComponent(window.location.hash.slice(1)));
+        if (t) {
+          select(t, false, false);
+          list.scrollIntoView();
+        }
+        return t;
+      };
+      list.hidden = false;
+      box.classList.add("ready");
+      if (fromHash()) {
+        // The browser may scroll to the fragment again at load.
+        window.addEventListener("load", function () { setTimeout(function () { list.scrollIntoView(); }, 0); });
+      } else {
+        select(byId(store()) || tabs[0], false, false);
+      }
+      sets.push(fromHash);
+    });
+    window.addEventListener("hashchange", function () { sets.forEach(function (f) { f(); }); });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     document.documentElement.classList.add("js");
     initCharts();
     initTables();
+    initTabs();
   });
 })();

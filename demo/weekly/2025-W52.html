@@ -94,13 +94,15 @@
 
 </section>
 
-<section class="section">
-  <h2>Traffico giornaliero</h2>
-  <p class="note">Da lunedì a domenica (settimana ISO 8601). Clic su un giorno per aprire il report giornaliero.</p>
+<div class="tabs">
+  <div class="tablist" role="tablist" aria-label="Sezioni della pagina" hidden><button type="button" role="tab" id="tab-traffico" aria-controls="traffico" aria-selected="false" tabindex="-1">Traffico</button><button type="button" role="tab" id="tab-confronto" aria-controls="confronto" aria-selected="false" tabindex="-1">Confronto</button><button type="button" role="tab" id="tab-tempi-di-consegna" aria-controls="tempi-di-consegna" aria-selected="false" tabindex="-1">Tempi di consegna</button><button type="button" role="tab" id="tab-mittenti-e-destinatari" aria-controls="mittenti-e-destinatari" aria-selected="false" tabindex="-1">Mittenti e destinatari</button><button type="button" role="tab" id="tab-rifiuti-ed-errori" aria-controls="rifiuti-ed-errori" aria-selected="false" tabindex="-1">Rifiuti ed errori</button><button type="button" role="tab" id="tab-sicurezza" aria-controls="sicurezza" aria-selected="false" tabindex="-1">Sicurezza</button><button type="button" role="tab" id="tab-copertura" aria-controls="copertura" aria-selected="false" tabindex="-1">Copertura</button></div>
+<section class="section tabpanel" id="traffico" role="tabpanel" aria-labelledby="tab-traffico">
+  <h2>Traffico</h2>
+  <p class="note">Da lunedì a domenica (settimana ISO 8601).</p>
   
 <div class="card">
-  
-  
+  <h3>Traffico giornaliero</h3>
+  <p class="note">Clic su un giorno per aprire il report giornaliero.</p>
   
 <div class="chart-wrap">
   <div class="chart" data-chart="daily-data"></div>
@@ -133,15 +135,10 @@
 
 </div>
 
-</section>
-
-<section class="section">
-  <h2>Distribuzione oraria aggregata</h2>
-  <p class="note">Somma, per ora del giorno, dei giorni osservati della settimana.</p>
-  
+<div class="grid">
 <div class="card">
-  
-  
+  <h3>Distribuzione oraria aggregata</h3>
+  <p class="note">Somma, per ora del giorno, dei giorni osservati della settimana.</p>
   
 <div class="chart-wrap">
   <div class="chart" data-chart="hourdist-data"></div>
@@ -208,13 +205,43 @@
 
 </div>
 
+<div class="card">
+  <h3>Composizione del traffico</h3>
+  <p class="note">Le istanze &#39;reinject&#39; sono il secondo passaggio dei messaggi dopo il content filter e non sono conteggiate come nuovi messaggi.</p>
+  
+
+<div class="table-wrap">
+<table id="composition" class="sortable">
+  <thead><tr><th>Categoria</th><th>Voce</th><th class="num">Conteggio</th></tr></thead>
+  <tbody>
+  <tr><td>Istanze di coda per origine</td><td class="key">reinject</td><td class="num" data-v="2166">2.166</td>
+  </tr>
+  <tr><td>Istanze di coda per origine</td><td class="key">smtp</td><td class="num" data-v="2166">2.166</td>
+  </tr>
+  <tr><td>Istanze di coda per origine</td><td class="key">notification</td><td class="num" data-v="78">78</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">smtp/sent</td><td class="num" data-v="2665">2.665</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">smtp/deferred</td><td class="num" data-v="122">122</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">lmtp/sent</td><td class="num" data-v="78">78</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">smtp/bounced</td><td class="num" data-v="78">78</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+</div>
+
 </section>
 
-<section class="section">
-  <h2>Confronto e ritardi</h2>
+<section class="section tabpanel" id="confronto" role="tabpanel" aria-labelledby="tab-confronto">
+  <h2>Confronto</h2>
   
   
-<div class="grid">
 <div class="card">
   <h3>Confronto con settimana 2025-W51</h3>
   <p class="note">* Copertura diversa: periodo 100,0%, precedente 98,2%. Le variazioni non sono confrontabili.</p>
@@ -247,6 +274,12 @@
 
 </div>
 
+</section>
+
+<section class="section tabpanel" id="tempi-di-consegna" role="tabpanel" aria-labelledby="tab-tempi-di-consegna">
+  <h2>Tempi di consegna</h2>
+  
+  
 <div class="card">
   <h3>Tempi di consegna</h3>
   <p class="note">Campo delay= di Postfix, per destinatario consegnato; percentili esatti (nearest-rank) sulle consegne del periodo.</p>
@@ -266,16 +299,9 @@
 
 
 </div>
-</div>
 
-</section>
-
-<section class="section">
-  <h2>Andamento dei ritardi</h2>
-  
-  
 <div class="card">
-  
+  <h3>Andamento dei ritardi</h3>
   
   
 <div class="chart-wrap">
@@ -311,8 +337,8 @@
 
 </section>
 
-<section class="section">
-  <h2>Classifiche</h2>
+<section class="section tabpanel" id="mittenti-e-destinatari" role="tabpanel" aria-labelledby="tab-mittenti-e-destinatari">
+  <h2>Mittenti e destinatari</h2>
   <p class="note">Primi 20 valori per categoria; tabelle ordinabili e filtrabili.</p>
   
 <div class="grid">
@@ -409,70 +435,6 @@
 </div>
 
 <div class="card">
-  <h3>Motivi di rifiuto SMTP</h3>
-  <p class="note">Unità: eventi di rifiuto. Totale 132, 2 valori distinti.</p>
-  
-
-<div class="table-wrap">
-<table id="week-reject_reason" class="sortable">
-  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">eventi di rifiuto</th><th class="num">%</th></tr></thead>
-  <tbody>
-  <tr><td class="num" data-v="1">1</td><td class="key">RCPT: 5.7.1 &lt;addr&gt;: Relay access denied</td><td class="num" data-v="101"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>101</span></div></td><td class="num" data-v="76.5152">76,5%</td>
-  </tr>
-  <tr><td class="num" data-v="2">2</td><td class="key">END-OF-MESSAGE: 4.7.1 Try again later</td><td class="num" data-v="31"><div class="bar-cell"><div class="bg" style="width:30.7%"></div><span>31</span></div></td><td class="num" data-v="23.4848">23,5%</td>
-  </tr>
-  </tbody>
-</table>
-</div>
-
-
-</div>
-
-<div class="card">
-  <h3>Motivi di differimento</h3>
-  <p class="note">Unità: tentativi differiti. Totale 122, 5 valori distinti.</p>
-  
-
-<div class="table-wrap">
-<table id="week-defer_reason" class="sortable">
-  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">tentativi differiti</th><th class="num">%</th></tr></thead>
-  <tbody>
-  <tr><td class="num" data-v="1">1</td><td class="key">4.4.1 connect to store.example.org: Connection timed out</td><td class="num" data-v="51"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>51</span></div></td><td class="num" data-v="41.8033">41,8%</td>
-  </tr>
-  <tr><td class="num" data-v="2">2</td><td class="key">4.4.1 connect to mx.example.com: Connection timed out</td><td class="num" data-v="22"><div class="bar-cell"><div class="bg" style="width:43.1%"></div><span>22</span></div></td><td class="num" data-v="18.0328">18,0%</td>
-  </tr>
-  <tr><td class="num" data-v="3">3</td><td class="key">4.4.1 connect to mx.example.net: Connection timed out</td><td class="num" data-v="20"><div class="bar-cell"><div class="bg" style="width:39.2%"></div><span>20</span></div></td><td class="num" data-v="16.3934">16,4%</td>
-  </tr>
-  <tr><td class="num" data-v="4">4</td><td class="key">4.4.1 connect to mx.partner.example.net: Connection timed out</td><td class="num" data-v="18"><div class="bar-cell"><div class="bg" style="width:35.3%"></div><span>18</span></div></td><td class="num" data-v="14.7541">14,8%</td>
-  </tr>
-  <tr><td class="num" data-v="5">5</td><td class="key">4.4.1 connect to mail.example.com: Connection timed out</td><td class="num" data-v="11"><div class="bar-cell"><div class="bg" style="width:21.6%"></div><span>11</span></div></td><td class="num" data-v="9.0164">9,0%</td>
-  </tr>
-  </tbody>
-</table>
-</div>
-
-
-</div>
-
-<div class="card">
-  <h3>Motivi di fallimento (bounce)</h3>
-  <p class="note">Unità: destinatari. Totale 78, 1 valori distinti.</p>
-  
-
-<div class="table-wrap">
-<table id="week-bounce_reason" class="sortable">
-  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">destinatari</th><th class="num">%</th></tr></thead>
-  <tbody>
-  <tr><td class="num" data-v="1">1</td><td class="key">5.1.1 550 5.1.1 &lt;addr&gt;: Recipient address rejected: User unknown</td><td class="num" data-v="78"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>78</span></div></td><td class="num" data-v="100.0000">100,0%</td>
-  </tr>
-  </tbody>
-</table>
-</div>
-
-
-</div>
-
-<div class="card">
   <h3>Relay di destinazione</h3>
   <p class="note">Unità: consegne riuscite. Totale 2.743, 6 valori distinti.</p>
   
@@ -492,6 +454,34 @@
   <tr><td class="num" data-v="5">5</td><td class="key">mx.example.net</td><td class="num" data-v="353"><div class="bar-cell"><div class="bg" style="width:30.5%"></div><span>353</span></div></td><td class="num" data-v="12.8691">12,9%</td>
   </tr>
   <tr><td class="num" data-v="6">6</td><td class="key">mx1.example.org</td><td class="num" data-v="78"><div class="bar-cell"><div class="bg" style="width:6.7%"></div><span>78</span></div></td><td class="num" data-v="2.8436">2,8%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+</div>
+
+</section>
+
+<section class="section tabpanel" id="rifiuti-ed-errori" role="tabpanel" aria-labelledby="tab-rifiuti-ed-errori">
+  <h2>Rifiuti ed errori</h2>
+  <p class="note">Primi 20 valori per categoria; tabelle ordinabili e filtrabili.</p>
+  
+<div class="grid">
+<div class="card">
+  <h3>Motivi di rifiuto SMTP</h3>
+  <p class="note">Unità: eventi di rifiuto. Totale 132, 2 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="week-reject_reason" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">eventi di rifiuto</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">RCPT: 5.7.1 &lt;addr&gt;: Relay access denied</td><td class="num" data-v="101"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>101</span></div></td><td class="num" data-v="76.5152">76,5%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">END-OF-MESSAGE: 4.7.1 Try again later</td><td class="num" data-v="31"><div class="bar-cell"><div class="bg" style="width:30.7%"></div><span>31</span></div></td><td class="num" data-v="23.4848">23,5%</td>
   </tr>
   </tbody>
 </table>
@@ -548,6 +538,90 @@
   <tr><td class="num" data-v="19">19</td><td class="key">203.0.113.125</td><td class="num" data-v="3"><div class="bar-cell"><div class="bg" style="width:42.9%"></div><span>3</span></div></td><td class="num" data-v="2.2727">2,3%</td>
   </tr>
   <tr><td class="num" data-v="20">20</td><td class="key">203.0.113.137</td><td class="num" data-v="3"><div class="bar-cell"><div class="bg" style="width:42.9%"></div><span>3</span></div></td><td class="num" data-v="2.2727">2,3%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>Motivi di differimento</h3>
+  <p class="note">Unità: tentativi differiti. Totale 122, 5 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="week-defer_reason" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">tentativi differiti</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">4.4.1 connect to store.example.org: Connection timed out</td><td class="num" data-v="51"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>51</span></div></td><td class="num" data-v="41.8033">41,8%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">4.4.1 connect to mx.example.com: Connection timed out</td><td class="num" data-v="22"><div class="bar-cell"><div class="bg" style="width:43.1%"></div><span>22</span></div></td><td class="num" data-v="18.0328">18,0%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">4.4.1 connect to mx.example.net: Connection timed out</td><td class="num" data-v="20"><div class="bar-cell"><div class="bg" style="width:39.2%"></div><span>20</span></div></td><td class="num" data-v="16.3934">16,4%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">4.4.1 connect to mx.partner.example.net: Connection timed out</td><td class="num" data-v="18"><div class="bar-cell"><div class="bg" style="width:35.3%"></div><span>18</span></div></td><td class="num" data-v="14.7541">14,8%</td>
+  </tr>
+  <tr><td class="num" data-v="5">5</td><td class="key">4.4.1 connect to mail.example.com: Connection timed out</td><td class="num" data-v="11"><div class="bar-cell"><div class="bg" style="width:21.6%"></div><span>11</span></div></td><td class="num" data-v="9.0164">9,0%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>Motivi di fallimento (bounce)</h3>
+  <p class="note">Unità: destinatari. Totale 78, 1 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="week-bounce_reason" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">destinatari</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">5.1.1 550 5.1.1 &lt;addr&gt;: Recipient address rejected: User unknown</td><td class="num" data-v="78"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>78</span></div></td><td class="num" data-v="100.0000">100,0%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+</div>
+
+</section>
+
+<section class="section tabpanel" id="sicurezza" role="tabpanel" aria-labelledby="tab-sicurezza">
+  <h2>Sicurezza</h2>
+  
+  
+<div class="grid">
+<div class="card">
+  <h3>TLS e SASL</h3>
+  <p class="note">STARTTLS dalle statistiche di fine sessione di smtpd. Nessun handshake TLS registrato (tls_loglevel = 0): TLS in uscita non misurabile.</p>
+  
+
+<div class="table-wrap">
+<table id="security">
+  <thead><tr><th>Indicatore</th><th class="num">Valore</th><th>Unità</th></tr></thead>
+  <tbody>
+  <tr><td>Connessioni SMTP in ingresso</td><td class="num">2.197</td><td title="connessioni">connessioni</td>
+  </tr>
+  <tr><td>Sessioni concluse</td><td class="num">2.197</td><td title="sessioni">sessioni</td>
+  </tr>
+  <tr><td>Sessioni con STARTTLS</td><td class="num">2.166 (98,6%)</td><td title="sessioni">sessioni</td>
+  </tr>
+  <tr><td>Messaggi con autenticazione SASL</td><td class="num">262</td><td title="messaggi accettati">messaggi accettati</td>
+  </tr>
+  <tr><td>Autenticazioni SASL fallite</td><td class="num">62</td><td title="eventi">eventi</td>
+  </tr>
+  <tr><td>Errori TLS</td><td class="num">0</td><td title="eventi">eventi</td>
+  </tr>
+  <tr><td>Sessioni interrotte (lost connection / timeout)</td><td class="num">0</td><td title="eventi">eventi</td>
+  </tr>
+  <tr><td>Handshake TLS registrati in ingresso / uscita</td><td class="num">0 / 0</td><td title="connessioni">connessioni</td>
   </tr>
   </tbody>
 </table>
@@ -637,77 +711,7 @@
 
 </section>
 
-<section class="section">
-  <h2>Sicurezza e composizione</h2>
-  
-  
-<div class="grid">
-<div class="card">
-  <h3>TLS e SASL</h3>
-  <p class="note">STARTTLS dalle statistiche di fine sessione di smtpd. Nessun handshake TLS registrato (tls_loglevel = 0): TLS in uscita non misurabile.</p>
-  
-
-<div class="table-wrap">
-<table id="security">
-  <thead><tr><th>Indicatore</th><th class="num">Valore</th><th>Unità</th></tr></thead>
-  <tbody>
-  <tr><td>Connessioni SMTP in ingresso</td><td class="num">2.197</td><td title="connessioni">connessioni</td>
-  </tr>
-  <tr><td>Sessioni concluse</td><td class="num">2.197</td><td title="sessioni">sessioni</td>
-  </tr>
-  <tr><td>Sessioni con STARTTLS</td><td class="num">2.166 (98,6%)</td><td title="sessioni">sessioni</td>
-  </tr>
-  <tr><td>Messaggi con autenticazione SASL</td><td class="num">262</td><td title="messaggi accettati">messaggi accettati</td>
-  </tr>
-  <tr><td>Autenticazioni SASL fallite</td><td class="num">62</td><td title="eventi">eventi</td>
-  </tr>
-  <tr><td>Errori TLS</td><td class="num">0</td><td title="eventi">eventi</td>
-  </tr>
-  <tr><td>Sessioni interrotte (lost connection / timeout)</td><td class="num">0</td><td title="eventi">eventi</td>
-  </tr>
-  <tr><td>Handshake TLS registrati in ingresso / uscita</td><td class="num">0 / 0</td><td title="connessioni">connessioni</td>
-  </tr>
-  </tbody>
-</table>
-</div>
-
-
-</div>
-
-<div class="card">
-  <h3>Composizione del traffico</h3>
-  <p class="note">Le istanze &#39;reinject&#39; sono il secondo passaggio dei messaggi dopo il content filter e non sono conteggiate come nuovi messaggi.</p>
-  
-
-<div class="table-wrap">
-<table id="composition" class="sortable">
-  <thead><tr><th>Categoria</th><th>Voce</th><th class="num">Conteggio</th></tr></thead>
-  <tbody>
-  <tr><td>Istanze di coda per origine</td><td class="key">reinject</td><td class="num" data-v="2166">2.166</td>
-  </tr>
-  <tr><td>Istanze di coda per origine</td><td class="key">smtp</td><td class="num" data-v="2166">2.166</td>
-  </tr>
-  <tr><td>Istanze di coda per origine</td><td class="key">notification</td><td class="num" data-v="78">78</td>
-  </tr>
-  <tr><td>Righe di stato per agente</td><td class="key">smtp/sent</td><td class="num" data-v="2665">2.665</td>
-  </tr>
-  <tr><td>Righe di stato per agente</td><td class="key">smtp/deferred</td><td class="num" data-v="122">122</td>
-  </tr>
-  <tr><td>Righe di stato per agente</td><td class="key">lmtp/sent</td><td class="num" data-v="78">78</td>
-  </tr>
-  <tr><td>Righe di stato per agente</td><td class="key">smtp/bounced</td><td class="num" data-v="78">78</td>
-  </tr>
-  </tbody>
-</table>
-</div>
-
-
-</div>
-</div>
-
-</section>
-
-<section class="section">
+<section class="section tabpanel" id="copertura" role="tabpanel" aria-labelledby="tab-copertura">
   <h2>Copertura</h2>
   
   
@@ -743,9 +747,11 @@
 
 </section>
 
+</div>
+
 </main>
 <footer>
-  <p>Generato il 13/10/2026 13:19:08 · postfix-report 1d8a0d3-dirty</p>
+  <p>Generato il 13/10/2026 14:56:42 · postfix-report 0.1</p>
   <p class="noprint">I conteggi indicano sempre l'unità: messaggi, destinatari, tentativi, eventi o sessioni. Definizioni in METRICS.md.</p>
 </footer>
 <script src="../assets/js/report.js"></script>

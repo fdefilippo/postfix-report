@@ -466,9 +466,8 @@ func (g *Generator) indexPage() (*Page, error) {
 		links[i] = g.href("", d)
 		b.Start, b.End = d.Start.Unix(), d.End.Unix()
 	}
-	pg.Blocks = append(pg.Blocks, section("Traffico degli ultimi sette giorni disponibili",
-		"Giorni con almeno una riga di log; clic su un giorno per il dettaglio.",
-		card("", "", g.bucketChart("last7", "Ultimi sette giorni", "bar", "", last7, labels, short, links, vals, trafficSeries))))
+	recent := section("Ultimi sette giorni", "Giorni con almeno una riga di log; clic su un giorno per il dettaglio.",
+		card("Traffico degli ultimi sette giorni disponibili", "", g.bucketChart("last7", "Ultimi sette giorni", "bar", "", last7, labels, short, links, vals, trafficSeries)))
 
 	// Latest reports.
 	latest := &Table{ID: "latest", Head: []Th{{Text: "Report"}, {Text: "Periodo"}, {Text: "Copertura"}}}
@@ -487,21 +486,21 @@ func (g *Generator) indexPage() (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	pg.Blocks = append(pg.Blocks, section("Report recenti e acquisizioni", "",
-		grid(card("Ultimi report", "", Block{Kind: "table", Table: latest}), srcBlock)))
-
 	arch, err := g.archive(ivs)
 	if err != nil {
 		return nil, err
 	}
-	pg.Blocks = append(pg.Blocks, section("Archivio", "Mesi e anni disponibili; il numero indica i messaggi accettati.",
-		Block{Kind: "archive", Archive: arch}))
-
 	an, err := g.anomaliesCard()
 	if err != nil {
 		return nil, err
 	}
-	pg.Blocks = append(pg.Blocks, section("Qualità dei dati", "", grid(an, g.coverageDaysCard(days))))
+	pg.Blocks = append(pg.Blocks, tabs(
+		recent,
+		section("Archivio", "Mesi e anni disponibili; il numero indica i messaggi accettati.",
+			Block{Kind: "archive", Archive: arch}),
+		section("Report e acquisizioni", "", grid(card("Ultimi report", "", Block{Kind: "table", Table: latest}), srcBlock)),
+		section("Qualità dei dati", "", grid(an, g.coverageDaysCard(days))),
+	))
 	return pg, nil
 }
 

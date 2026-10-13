@@ -94,12 +94,14 @@
 
 </section>
 
-<section class="section">
-  <h2>Traffico orario</h2>
+<div class="tabs">
+  <div class="tablist" role="tablist" aria-label="Sezioni della pagina" hidden><button type="button" role="tab" id="tab-traffico" aria-controls="traffico" aria-selected="false" tabindex="-1">Traffico</button><button type="button" role="tab" id="tab-tempi-di-consegna" aria-controls="tempi-di-consegna" aria-selected="false" tabindex="-1">Tempi di consegna</button><button type="button" role="tab" id="tab-mittenti-e-destinatari" aria-controls="mittenti-e-destinatari" aria-selected="false" tabindex="-1">Mittenti e destinatari</button><button type="button" role="tab" id="tab-rifiuti-ed-errori" aria-controls="rifiuti-ed-errori" aria-selected="false" tabindex="-1">Rifiuti ed errori</button><button type="button" role="tab" id="tab-sicurezza" aria-controls="sicurezza" aria-selected="false" tabindex="-1">Sicurezza</button><button type="button" role="tab" id="tab-copertura" aria-controls="copertura" aria-selected="false" tabindex="-1">Copertura</button></div>
+<section class="section tabpanel" id="traffico" role="tabpanel" aria-labelledby="tab-traffico">
+  <h2>Traffico</h2>
   <p class="note">Ore locali 00–23. Le ore senza dati sono tratteggiate e non valgono zero.</p>
   
 <div class="card">
-  
+  <h3>Traffico orario</h3>
   
   
 <div class="chart-wrap">
@@ -167,12 +169,6 @@
 
 </div>
 
-</section>
-
-<section class="section">
-  <h2>Volume e prestazioni</h2>
-  
-  
 <div class="grid">
 <div class="card">
   <h3>Volume orario (byte accettati)</h3>
@@ -244,6 +240,43 @@
 </div>
 
 <div class="card">
+  <h3>Composizione del traffico</h3>
+  <p class="note">Le istanze &#39;reinject&#39; sono il secondo passaggio dei messaggi dopo il content filter e non sono conteggiate come nuovi messaggi.</p>
+  
+
+<div class="table-wrap">
+<table id="composition" class="sortable">
+  <thead><tr><th>Categoria</th><th>Voce</th><th class="num">Conteggio</th></tr></thead>
+  <tbody>
+  <tr><td>Istanze di coda per origine</td><td class="key">reinject</td><td class="num" data-v="368">368</td>
+  </tr>
+  <tr><td>Istanze di coda per origine</td><td class="key">smtp</td><td class="num" data-v="368">368</td>
+  </tr>
+  <tr><td>Istanze di coda per origine</td><td class="key">notification</td><td class="num" data-v="14">14</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">smtp/sent</td><td class="num" data-v="428">428</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">lmtp/sent</td><td class="num" data-v="14">14</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">smtp/bounced</td><td class="num" data-v="14">14</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">smtp/deferred</td><td class="num" data-v="13">13</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+</div>
+
+</section>
+
+<section class="section tabpanel" id="tempi-di-consegna" role="tabpanel" aria-labelledby="tab-tempi-di-consegna">
+  <h2>Tempi di consegna</h2>
+  
+  
+<div class="card">
   <h3>Tempi di consegna</h3>
   <p class="note">Campo delay= di Postfix, per destinatario consegnato; percentili esatti (nearest-rank) sulle consegne del periodo.</p>
   
@@ -262,12 +295,11 @@
 
 
 </div>
-</div>
 
 </section>
 
-<section class="section">
-  <h2>Classifiche</h2>
+<section class="section tabpanel" id="mittenti-e-destinatari" role="tabpanel" aria-labelledby="tab-mittenti-e-destinatari">
+  <h2>Mittenti e destinatari</h2>
   <p class="note">Primi 20 valori per categoria; tabelle ordinabili e filtrabili.</p>
   
 <div class="grid">
@@ -364,6 +396,42 @@
 </div>
 
 <div class="card">
+  <h3>Relay di destinazione</h3>
+  <p class="note">Unità: consegne riuscite. Totale 442, 6 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="day-relay" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">consegne riuscite</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">store.example.org</td><td class="num" data-v="203"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>203</span></div></td><td class="num" data-v="45.9276">45,9%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">mx.example.net</td><td class="num" data-v="65"><div class="bar-cell"><div class="bg" style="width:32.0%"></div><span>65</span></div></td><td class="num" data-v="14.7059">14,7%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">mail.example.com</td><td class="num" data-v="62"><div class="bar-cell"><div class="bg" style="width:30.5%"></div><span>62</span></div></td><td class="num" data-v="14.0271">14,0%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">mx.example.com</td><td class="num" data-v="50"><div class="bar-cell"><div class="bg" style="width:24.6%"></div><span>50</span></div></td><td class="num" data-v="11.3122">11,3%</td>
+  </tr>
+  <tr><td class="num" data-v="5">5</td><td class="key">mx.partner.example.net</td><td class="num" data-v="48"><div class="bar-cell"><div class="bg" style="width:23.6%"></div><span>48</span></div></td><td class="num" data-v="10.8597">10,9%</td>
+  </tr>
+  <tr><td class="num" data-v="6">6</td><td class="key">mx1.example.org</td><td class="num" data-v="14"><div class="bar-cell"><div class="bg" style="width:6.9%"></div><span>14</span></div></td><td class="num" data-v="3.1674">3,2%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+</div>
+
+</section>
+
+<section class="section tabpanel" id="rifiuti-ed-errori" role="tabpanel" aria-labelledby="tab-rifiuti-ed-errori">
+  <h2>Rifiuti ed errori</h2>
+  <p class="note">Primi 20 valori per categoria; tabelle ordinabili e filtrabili.</p>
+  
+<div class="grid">
+<div class="card">
   <h3>Motivi di rifiuto SMTP</h3>
   <p class="note">Unità: eventi di rifiuto. Totale 22, 2 valori distinti.</p>
   
@@ -375,6 +443,56 @@
   <tr><td class="num" data-v="1">1</td><td class="key">RCPT: 5.7.1 &lt;addr&gt;: Relay access denied</td><td class="num" data-v="15"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>15</span></div></td><td class="num" data-v="68.1818">68,2%</td>
   </tr>
   <tr><td class="num" data-v="2">2</td><td class="key">END-OF-MESSAGE: 4.7.1 Try again later</td><td class="num" data-v="7"><div class="bar-cell"><div class="bg" style="width:46.7%"></div><span>7</span></div></td><td class="num" data-v="31.8182">31,8%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>IP rifiutati</h3>
+  <p class="note">Unità: eventi di rifiuto. Totale 22, 17 valori distinti.</p>
+  
+<div class="filter"><input type="search" placeholder="Filtra…" aria-label="Filtra la tabella" data-filter="day-reject_ip"><span class="filter-count"></span></div>
+<div class="table-wrap">
+<table id="day-reject_ip" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">eventi di rifiuto</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">192.0.2.11</td><td class="num" data-v="3"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>3</span></div></td><td class="num" data-v="13.6364">13,6%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">203.0.113.103</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:66.7%"></div><span>2</span></div></td><td class="num" data-v="9.0909">9,1%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">203.0.113.126</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:66.7%"></div><span>2</span></div></td><td class="num" data-v="9.0909">9,1%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">203.0.113.127</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:66.7%"></div><span>2</span></div></td><td class="num" data-v="9.0909">9,1%</td>
+  </tr>
+  <tr><td class="num" data-v="5">5</td><td class="key">192.0.2.10</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="6">6</td><td class="key">192.0.2.12</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="7">7</td><td class="key">198.51.100.20</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="8">8</td><td class="key">203.0.113.100</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="9">9</td><td class="key">203.0.113.101</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="10">10</td><td class="key">203.0.113.102</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="11">11</td><td class="key">203.0.113.107</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="12">12</td><td class="key">203.0.113.119</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="13">13</td><td class="key">203.0.113.129</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="14">14</td><td class="key">203.0.113.135</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="15">15</td><td class="key">203.0.113.137</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="16">16</td><td class="key">203.0.113.145</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  </tr>
+  <tr><td class="num" data-v="17">17</td><td class="key">203.0.113.30</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
   </tr>
   </tbody>
 </table>
@@ -426,77 +544,39 @@
 
 
 </div>
+</div>
 
+</section>
+
+<section class="section tabpanel" id="sicurezza" role="tabpanel" aria-labelledby="tab-sicurezza">
+  <h2>Sicurezza</h2>
+  
+  
+<div class="grid">
 <div class="card">
-  <h3>Relay di destinazione</h3>
-  <p class="note">Unità: consegne riuscite. Totale 442, 6 valori distinti.</p>
+  <h3>TLS e SASL</h3>
+  <p class="note">STARTTLS dalle statistiche di fine sessione di smtpd. Nessun handshake TLS registrato (tls_loglevel = 0): TLS in uscita non misurabile.</p>
   
 
 <div class="table-wrap">
-<table id="day-relay" class="sortable">
-  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">consegne riuscite</th><th class="num">%</th></tr></thead>
+<table id="security">
+  <thead><tr><th>Indicatore</th><th class="num">Valore</th><th>Unità</th></tr></thead>
   <tbody>
-  <tr><td class="num" data-v="1">1</td><td class="key">store.example.org</td><td class="num" data-v="203"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>203</span></div></td><td class="num" data-v="45.9276">45,9%</td>
+  <tr><td>Connessioni SMTP in ingresso</td><td class="num">375</td><td title="connessioni">connessioni</td>
   </tr>
-  <tr><td class="num" data-v="2">2</td><td class="key">mx.example.net</td><td class="num" data-v="65"><div class="bar-cell"><div class="bg" style="width:32.0%"></div><span>65</span></div></td><td class="num" data-v="14.7059">14,7%</td>
+  <tr><td>Sessioni concluse</td><td class="num">375</td><td title="sessioni">sessioni</td>
   </tr>
-  <tr><td class="num" data-v="3">3</td><td class="key">mail.example.com</td><td class="num" data-v="62"><div class="bar-cell"><div class="bg" style="width:30.5%"></div><span>62</span></div></td><td class="num" data-v="14.0271">14,0%</td>
+  <tr><td>Sessioni con STARTTLS</td><td class="num">368 (98,1%)</td><td title="sessioni">sessioni</td>
   </tr>
-  <tr><td class="num" data-v="4">4</td><td class="key">mx.example.com</td><td class="num" data-v="50"><div class="bar-cell"><div class="bg" style="width:24.6%"></div><span>50</span></div></td><td class="num" data-v="11.3122">11,3%</td>
+  <tr><td>Messaggi con autenticazione SASL</td><td class="num">36</td><td title="messaggi accettati">messaggi accettati</td>
   </tr>
-  <tr><td class="num" data-v="5">5</td><td class="key">mx.partner.example.net</td><td class="num" data-v="48"><div class="bar-cell"><div class="bg" style="width:23.6%"></div><span>48</span></div></td><td class="num" data-v="10.8597">10,9%</td>
+  <tr><td>Autenticazioni SASL fallite</td><td class="num">9</td><td title="eventi">eventi</td>
   </tr>
-  <tr><td class="num" data-v="6">6</td><td class="key">mx1.example.org</td><td class="num" data-v="14"><div class="bar-cell"><div class="bg" style="width:6.9%"></div><span>14</span></div></td><td class="num" data-v="3.1674">3,2%</td>
+  <tr><td>Errori TLS</td><td class="num">0</td><td title="eventi">eventi</td>
   </tr>
-  </tbody>
-</table>
-</div>
-
-
-</div>
-
-<div class="card">
-  <h3>IP rifiutati</h3>
-  <p class="note">Unità: eventi di rifiuto. Totale 22, 17 valori distinti.</p>
-  
-<div class="filter"><input type="search" placeholder="Filtra…" aria-label="Filtra la tabella" data-filter="day-reject_ip"><span class="filter-count"></span></div>
-<div class="table-wrap">
-<table id="day-reject_ip" class="sortable">
-  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">eventi di rifiuto</th><th class="num">%</th></tr></thead>
-  <tbody>
-  <tr><td class="num" data-v="1">1</td><td class="key">192.0.2.11</td><td class="num" data-v="3"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>3</span></div></td><td class="num" data-v="13.6364">13,6%</td>
+  <tr><td>Sessioni interrotte (lost connection / timeout)</td><td class="num">0</td><td title="eventi">eventi</td>
   </tr>
-  <tr><td class="num" data-v="2">2</td><td class="key">203.0.113.103</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:66.7%"></div><span>2</span></div></td><td class="num" data-v="9.0909">9,1%</td>
-  </tr>
-  <tr><td class="num" data-v="3">3</td><td class="key">203.0.113.126</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:66.7%"></div><span>2</span></div></td><td class="num" data-v="9.0909">9,1%</td>
-  </tr>
-  <tr><td class="num" data-v="4">4</td><td class="key">203.0.113.127</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:66.7%"></div><span>2</span></div></td><td class="num" data-v="9.0909">9,1%</td>
-  </tr>
-  <tr><td class="num" data-v="5">5</td><td class="key">192.0.2.10</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="6">6</td><td class="key">192.0.2.12</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="7">7</td><td class="key">198.51.100.20</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="8">8</td><td class="key">203.0.113.100</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="9">9</td><td class="key">203.0.113.101</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="10">10</td><td class="key">203.0.113.102</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="11">11</td><td class="key">203.0.113.107</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="12">12</td><td class="key">203.0.113.119</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="13">13</td><td class="key">203.0.113.129</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="14">14</td><td class="key">203.0.113.135</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="15">15</td><td class="key">203.0.113.137</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="16">16</td><td class="key">203.0.113.145</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
-  </tr>
-  <tr><td class="num" data-v="17">17</td><td class="key">203.0.113.30</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>1</span></div></td><td class="num" data-v="4.5455">4,5%</td>
+  <tr><td>Handshake TLS registrati in ingresso / uscita</td><td class="num">0 / 0</td><td title="connessioni">connessioni</td>
   </tr>
   </tbody>
 </table>
@@ -564,77 +644,7 @@
 
 </section>
 
-<section class="section">
-  <h2>Sicurezza e composizione</h2>
-  
-  
-<div class="grid">
-<div class="card">
-  <h3>TLS e SASL</h3>
-  <p class="note">STARTTLS dalle statistiche di fine sessione di smtpd. Nessun handshake TLS registrato (tls_loglevel = 0): TLS in uscita non misurabile.</p>
-  
-
-<div class="table-wrap">
-<table id="security">
-  <thead><tr><th>Indicatore</th><th class="num">Valore</th><th>Unità</th></tr></thead>
-  <tbody>
-  <tr><td>Connessioni SMTP in ingresso</td><td class="num">375</td><td title="connessioni">connessioni</td>
-  </tr>
-  <tr><td>Sessioni concluse</td><td class="num">375</td><td title="sessioni">sessioni</td>
-  </tr>
-  <tr><td>Sessioni con STARTTLS</td><td class="num">368 (98,1%)</td><td title="sessioni">sessioni</td>
-  </tr>
-  <tr><td>Messaggi con autenticazione SASL</td><td class="num">36</td><td title="messaggi accettati">messaggi accettati</td>
-  </tr>
-  <tr><td>Autenticazioni SASL fallite</td><td class="num">9</td><td title="eventi">eventi</td>
-  </tr>
-  <tr><td>Errori TLS</td><td class="num">0</td><td title="eventi">eventi</td>
-  </tr>
-  <tr><td>Sessioni interrotte (lost connection / timeout)</td><td class="num">0</td><td title="eventi">eventi</td>
-  </tr>
-  <tr><td>Handshake TLS registrati in ingresso / uscita</td><td class="num">0 / 0</td><td title="connessioni">connessioni</td>
-  </tr>
-  </tbody>
-</table>
-</div>
-
-
-</div>
-
-<div class="card">
-  <h3>Composizione del traffico</h3>
-  <p class="note">Le istanze &#39;reinject&#39; sono il secondo passaggio dei messaggi dopo il content filter e non sono conteggiate come nuovi messaggi.</p>
-  
-
-<div class="table-wrap">
-<table id="composition" class="sortable">
-  <thead><tr><th>Categoria</th><th>Voce</th><th class="num">Conteggio</th></tr></thead>
-  <tbody>
-  <tr><td>Istanze di coda per origine</td><td class="key">reinject</td><td class="num" data-v="368">368</td>
-  </tr>
-  <tr><td>Istanze di coda per origine</td><td class="key">smtp</td><td class="num" data-v="368">368</td>
-  </tr>
-  <tr><td>Istanze di coda per origine</td><td class="key">notification</td><td class="num" data-v="14">14</td>
-  </tr>
-  <tr><td>Righe di stato per agente</td><td class="key">smtp/sent</td><td class="num" data-v="428">428</td>
-  </tr>
-  <tr><td>Righe di stato per agente</td><td class="key">lmtp/sent</td><td class="num" data-v="14">14</td>
-  </tr>
-  <tr><td>Righe di stato per agente</td><td class="key">smtp/bounced</td><td class="num" data-v="14">14</td>
-  </tr>
-  <tr><td>Righe di stato per agente</td><td class="key">smtp/deferred</td><td class="num" data-v="13">13</td>
-  </tr>
-  </tbody>
-</table>
-</div>
-
-
-</div>
-</div>
-
-</section>
-
-<section class="section">
+<section class="section tabpanel" id="copertura" role="tabpanel" aria-labelledby="tab-copertura">
   <h2>Copertura</h2>
   
   
@@ -704,9 +714,11 @@
 
 </section>
 
+</div>
+
 </main>
 <footer>
-  <p>Generato il 13/10/2026 13:19:07 · postfix-report 1d8a0d3-dirty</p>
+  <p>Generato il 13/10/2026 14:56:41 · postfix-report 0.1</p>
   <p class="noprint">I conteggi indicano sempre l'unità: messaggi, destinatari, tentativi, eventi o sessioni. Definizioni in METRICS.md.</p>
 </footer>
 <script src="../assets/js/report.js"></script>

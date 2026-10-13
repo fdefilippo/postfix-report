@@ -69,8 +69,11 @@
 
 ## Report
 
-* I grafici richiedono JavaScript (locale, nessuna dipendenza). Senza
-  JavaScript le pagine mostrano le tabelle dei dati di ogni grafico.
+* I grafici e le schede richiedono JavaScript (locale, nessuna dipendenza).
+  Senza JavaScript le pagine mostrano tutte le sezioni in sequenza e le
+  tabelle dei dati di ogni grafico. La scheda scelta è ricordata nel
+  `localStorage` del browser: se il browser lo blocca, ogni pagina si apre
+  sulla prima scheda.
 * Le classifiche settimanali, mensili e annuali sommano i conteggi giornalieri:
   sono esatte. I percentili dei ritardi sono calcolati esattamente sulle righe
   del periodo e non sono aggregabili fra periodi.
