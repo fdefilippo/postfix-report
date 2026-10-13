@@ -5,3 +5,15 @@
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+
+# postfix-report: real logs, databases and reports built from them contain
+# personal data and must never be committed.
+/maillog
+/maillog[.-]*
+/samples/
+/reports-real/
+*.db-wal
+*.db-shm
+*.db.lock
+/bin/
+/dist/

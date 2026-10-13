@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>sabato 7 febbraio 2026 · Demo postfix-report (dati sintetici)</title>
+<link rel="stylesheet" href="../assets/css/report.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../index.html">Demo postfix-report (dati sintetici)<small>postfix-report</small></a>
+  <nav aria-label="Navigazione principale"><a href="../index.html">Panoramica</a><a href="../daily/2026-02-13.html" class="active" aria-current="page">Giorno</a><a href="../weekly/2026-W07.html">Settimana</a><a href="../monthly/2026-02.html">Mese</a><a href="../yearly/2026.html">Anno</a></nav>
+</header>
+<main>
+  <div class="pagehead">
+    <div><div class="crumbs"><a href="../index.html">Panoramica</a> › <a href="../yearly/2026.html">2026</a> › <a href="../monthly/2026-02.html">feb 2026</a> › <a href="../weekly/2026-W06.html">2026-W06</a></div>
+      <h1>sabato 7 febbraio 2026</h1><p class="sub">Copertura: completa · 24/24 ore con dati</p>
+    </div>
+    <nav class="pager" aria-label="Periodi adiacenti">
+      <a href="../daily/2026-02-06.html" rel="prev">‹ 06/02/2026</a>
+      <a href="../monthly/2026-02.html">feb 2026</a>
+      <a href="../daily/2026-02-08.html" rel="next">08/02/2026 ›</a>
+    </nav>
+  </div>
+  
+<section class="section">
+  <h2>Indicatori del giorno</h2>
+  <p class="note">Variazione rispetto al giorno precedente, solo se entrambi i giorni sono interamente osservati.</p>
+  
+<div class="kpis">
+  <div class="kpi accepted">
+    <div class="label">Messaggi accettati</div>
+    <div class="value">124</div>
+    <div class="unit">messaggi · SMTP 124 · locali 0</div>
+    <div class="delta down">-70,1% vs periodo prec.</div>
+  </div>
+  <div class="kpi accepted">
+    <div class="label">Destinatari</div>
+    <div class="value">158</div>
+    <div class="unit">destinatari dei messaggi accettati</div>
+    <div class="delta down">-69,9% vs periodo prec.</div>
+  </div>
+  <div class="kpi sent">
+    <div class="label">Consegne riuscite</div>
+    <div class="value">158</div>
+    <div class="unit">destinatari consegnati · di cui notifiche 1</div>
+    <div class="delta down">-69,9% vs periodo prec.</div>
+  </div>
+  <div class="kpi deferred">
+    <div class="label">Differimenti</div>
+    <div class="value">11</div>
+    <div class="unit">tentativi differiti · poi consegnati 11</div>
+    <div class="delta down">-31,2% vs periodo prec.</div>
+  </div>
+  <div class="kpi failed">
+    <div class="label">Fallimenti definitivi</div>
+    <div class="value">1</div>
+    <div class="unit">destinatari · bounce 1 · scaduti 0</div>
+    <div class="delta down">-95,2% vs periodo prec.</div>
+  </div>
+  <div class="kpi rejected">
+    <div class="label">Rifiuti SMTP</div>
+    <div class="value">10</div>
+    <div class="unit">eventi · temporanei 2 · permanenti 8</div>
+    <div class="delta down">-54,5% vs periodo prec.</div>
+  </div>
+  <div class="kpi ">
+    <div class="label">Volume</div>
+    <div class="value">192,3 kB</div>
+    <div class="unit">byte dei messaggi accettati</div>
+    <div class="delta down">-73,6% vs periodo prec.</div>
+  </div>
+  <div class="kpi ">
+    <div class="label">Dimensione media</div>
+    <div class="value">1,6 kB</div>
+    <div class="unit">per messaggio accettato</div>
+    
+  </div>
+  <div class="kpi ">
+    <div class="label">Ritardo medio</div>
+    <div class="value">2,7 min</div>
+    <div class="unit">per consegna riuscita (campo delay)</div>
+    
+  </div>
+  <div class="kpi ">
+    <div class="label">Notifiche generate</div>
+    <div class="value">1</div>
+    <div class="unit">messaggi bounce/DSN creati da Postfix</div>
+    <div class="delta down">-95,2% vs periodo prec.</div>
+  </div>
+</div>
+
+</section>
+
+<section class="section">
+  <h2>Traffico orario</h2>
+  <p class="note">Ore locali 00–23. Le ore senza dati sono tratteggiate e non valgono zero.</p>
+  
+<div class="card">
+  
+  
+  
+<div class="chart-wrap">
+  <div class="chart" data-chart="hourly-data"></div>
+  <script type="application/json" id="hourly-data">{"type":"bar","title":"Traffico orario","labels":["00:00","01:00","02:00","03:00","04:00","05:00","06:00","07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"],"short":["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23"],"status":["complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete"],"fraction":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"series":[{"name":"Messaggi accettati","color":"#2f6fd6","values":[0,0,0,2,0,0,4,5,9,12,13,13,11,12,12,8,6,7,2,1,1,1,0,5]},{"name":"Consegne riuscite","color":"#1e9a55","values":[0,0,0,2,0,0,4,6,9,19,18,18,17,13,19,10,5,8,2,1,1,1,0,5]},{"name":"Tentativi differiti","color":"#d98a0b","values":[0,0,0,0,0,0,0,1,1,0,1,1,2,1,2,0,1,0,0,0,0,0,0,1]},{"name":"Fallimenti definitivi","color":"#d33b3b","values":[0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0]},{"name":"Rifiuti SMTP","color":"#7a4cc2","values":[1,0,0,0,0,1,0,1,0,0,0,1,1,2,0,2,0,0,0,0,0,0,1,0]}]}</script>
+  <p class="nojs-note">Il grafico richiede JavaScript: i dati sono nella tabella qui sotto.</p>
+  <details class="data"><summary>Mostra i dati del grafico</summary>
+<div class="table-wrap">
+<table id="hourly-table">
+  <thead><tr><th>Periodo</th><th>Copertura</th><th class="num">Messaggi accettati</th><th class="num">Consegne riuscite</th><th class="num">Tentativi differiti</th><th class="num">Fallimenti definitivi</th><th class="num">Rifiuti SMTP</th></tr></thead>
+  <tbody>
+  <tr class="complete"><td>00:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="1">1</td>
+  </tr>
+  <tr class="complete"><td>01:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>02:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>03:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="2">2</td><td class="num" data-v="2">2</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>04:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>05:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="1">1</td>
+  </tr>
+  <tr class="complete"><td>06:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="4">4</td><td class="num" data-v="4">4</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>07:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="5">5</td><td class="num" data-v="6">6</td><td class="num" data-v="1">1</td><td class="num" data-v="0">0</td><td class="num" data-v="1">1</td>
+  </tr>
+  <tr class="complete"><td>08:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="9">9</td><td class="num" data-v="9">9</td><td class="num" data-v="1">1</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>09:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="12">12</td><td class="num" data-v="19">19</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>10:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="13">13</td><td class="num" data-v="18">18</td><td class="num" data-v="1">1</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>11:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="13">13</td><td class="num" data-v="18">18</td><td class="num" data-v="1">1</td><td class="num" data-v="1">1</td><td class="num" data-v="1">1</td>
+  </tr>
+  <tr class="complete"><td>12:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="11">11</td><td class="num" data-v="17">17</td><td class="num" data-v="2">2</td><td class="num" data-v="0">0</td><td class="num" data-v="1">1</td>
+  </tr>
+  <tr class="complete"><td>13:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="12">12</td><td class="num" data-v="13">13</td><td class="num" data-v="1">1</td><td class="num" data-v="0">0</td><td class="num" data-v="2">2</td>
+  </tr>
+  <tr class="complete"><td>14:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="12">12</td><td class="num" data-v="19">19</td><td class="num" data-v="2">2</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>15:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="8">8</td><td class="num" data-v="10">10</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="2">2</td>
+  </tr>
+  <tr class="complete"><td>16:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="6">6</td><td class="num" data-v="5">5</td><td class="num" data-v="1">1</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>17:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="7">7</td><td class="num" data-v="8">8</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>18:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="2">2</td><td class="num" data-v="2">2</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>19:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="1">1</td><td class="num" data-v="1">1</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>20:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="1">1</td><td class="num" data-v="1">1</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>21:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="1">1</td><td class="num" data-v="1">1</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  <tr class="complete"><td>22:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td><td class="num" data-v="1">1</td>
+  </tr>
+  <tr class="complete"><td>23:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="5">5</td><td class="num" data-v="5">5</td><td class="num" data-v="1">1</td><td class="num" data-v="0">0</td><td class="num" data-v="0">0</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+</details>
+</div>
+
+</div>
+
+</section>
+
+<section class="section">
+  <h2>Volume e prestazioni</h2>
+  
+  
+<div class="grid">
+<div class="card">
+  <h3>Volume orario (byte accettati)</h3>
+  
+  
+<div class="chart-wrap">
+  <div class="chart" data-chart="volume-data"></div>
+  <script type="application/json" id="volume-data">{"type":"bar","title":"Volume orario","labels":["00:00","01:00","02:00","03:00","04:00","05:00","06:00","07:00","08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00","23:00"],"short":["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23"],"status":["complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete","complete"],"fraction":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"unit":"bytes","series":[{"name":"Volume accettato","color":"#3a8fb7","values":[0,0,0,2235,0,0,7779,4931,14839,22136,15790,12924,14353,22239,20646,12859,6114,14093,2482,2038,801,3125,0,12880]}]}</script>
+  <p class="nojs-note">Il grafico richiede JavaScript: i dati sono nella tabella qui sotto.</p>
+  <details class="data"><summary>Mostra i dati del grafico</summary>
+<div class="table-wrap">
+<table id="volume-table">
+  <thead><tr><th>Periodo</th><th>Copertura</th><th class="num">Volume accettato</th></tr></thead>
+  <tbody>
+  <tr class="complete"><td>00:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0 B</td>
+  </tr>
+  <tr class="complete"><td>01:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0 B</td>
+  </tr>
+  <tr class="complete"><td>02:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0 B</td>
+  </tr>
+  <tr class="complete"><td>03:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="2235">2,2 kB</td>
+  </tr>
+  <tr class="complete"><td>04:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0 B</td>
+  </tr>
+  <tr class="complete"><td>05:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0 B</td>
+  </tr>
+  <tr class="complete"><td>06:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="7779">7,8 kB</td>
+  </tr>
+  <tr class="complete"><td>07:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="4931">4,9 kB</td>
+  </tr>
+  <tr class="complete"><td>08:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="14839">14,8 kB</td>
+  </tr>
+  <tr class="complete"><td>09:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="22136">22,1 kB</td>
+  </tr>
+  <tr class="complete"><td>10:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="15790">15,8 kB</td>
+  </tr>
+  <tr class="complete"><td>11:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="12924">12,9 kB</td>
+  </tr>
+  <tr class="complete"><td>12:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="14353">14,4 kB</td>
+  </tr>
+  <tr class="complete"><td>13:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="22239">22,2 kB</td>
+  </tr>
+  <tr class="complete"><td>14:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="20646">20,6 kB</td>
+  </tr>
+  <tr class="complete"><td>15:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="12859">12,9 kB</td>
+  </tr>
+  <tr class="complete"><td>16:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="6114">6,1 kB</td>
+  </tr>
+  <tr class="complete"><td>17:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="14093">14,1 kB</td>
+  </tr>
+  <tr class="complete"><td>18:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="2482">2,5 kB</td>
+  </tr>
+  <tr class="complete"><td>19:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="2038">2,0 kB</td>
+  </tr>
+  <tr class="complete"><td>20:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="801">801 B</td>
+  </tr>
+  <tr class="complete"><td>21:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="3125">3,1 kB</td>
+  </tr>
+  <tr class="complete"><td>22:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="0">0 B</td>
+  </tr>
+  <tr class="complete"><td>23:00</td><td><span class="badge complete">completa</span></td><td class="num" data-v="12880">12,9 kB</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+</details>
+</div>
+
+</div>
+
+<div class="card">
+  <h3>Tempi di consegna</h3>
+  <p class="note">Campo delay= di Postfix, per destinatario consegnato; percentili esatti (nearest-rank) sulle consegne del periodo.</p>
+  
+
+<div class="table-wrap">
+<table id="delays">
+  <thead><tr><th>Tipo</th><th class="num">Consegne</th><th class="num">Media</th><th class="num">p50</th><th class="num">p90</th><th class="num">p95</th><th class="num">p99</th><th class="num">Massimo</th></tr></thead>
+  <tbody>
+  <tr><td>Consegne riuscite (smtp/lmtp)</td><td class="num">158</td><td class="num">2,7 min</td><td class="num">1,11 s</td><td class="num">4,90 s</td><td class="num">30,1 min</td><td class="num">50,0 min</td><td class="num">54,0 min</td>
+  </tr>
+  <tr><td>Passaggio al content filter</td><td class="num">158</td><td class="num">0,30 s</td><td class="num">0,30 s</td><td class="num">0,30 s</td><td class="num">0,30 s</td><td class="num">0,30 s</td><td class="num">0,30 s</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+</div>
+
+</section>
+
+<section class="section">
+  <h2>Classifiche</h2>
+  <p class="note">Primi 20 valori per categoria; tabelle ordinabili e filtrabili.</p>
+  
+<div class="grid">
+<div class="card">
+  <h3>Domini mittenti</h3>
+  <p class="note">Unità: messaggi accettati. Totale 124, 6 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="day-sender_domain" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">messaggi accettati</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">example.org</td><td class="num" data-v="40"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>40</span></div></td><td class="num" data-v="32.2581">32,3%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">app.example.org</td><td class="num" data-v="23"><div class="bar-cell"><div class="bg" style="width:57.5%"></div><span>23</span></div></td><td class="num" data-v="18.5484">18,5%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">lists.example.net</td><td class="num" data-v="16"><div class="bar-cell"><div class="bg" style="width:40.0%"></div><span>16</span></div></td><td class="num" data-v="12.9032">12,9%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">monitor.example.org</td><td class="num" data-v="15"><div class="bar-cell"><div class="bg" style="width:37.5%"></div><span>15</span></div></td><td class="num" data-v="12.0968">12,1%</td>
+  </tr>
+  <tr><td class="num" data-v="5">5</td><td class="key">mx1.example.org</td><td class="num" data-v="15"><div class="bar-cell"><div class="bg" style="width:37.5%"></div><span>15</span></div></td><td class="num" data-v="12.0968">12,1%</td>
+  </tr>
+  <tr><td class="num" data-v="6">6</td><td class="key">shop.example.com</td><td class="num" data-v="15"><div class="bar-cell"><div class="bg" style="width:37.5%"></div><span>15</span></div></td><td class="num" data-v="12.0968">12,1%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>Domini destinatari</h3>
+  <p class="note">Unità: consegne riuscite. Totale 158, 6 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="day-rcpt_domain" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">consegne riuscite</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">example.org</td><td class="num" data-v="68"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>68</span></div></td><td class="num" data-v="43.0380">43,0%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">example.net</td><td class="num" data-v="32"><div class="bar-cell"><div class="bg" style="width:47.1%"></div><span>32</span></div></td><td class="num" data-v="20.2532">20,3%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">example.com</td><td class="num" data-v="22"><div class="bar-cell"><div class="bg" style="width:32.4%"></div><span>22</span></div></td><td class="num" data-v="13.9241">13,9%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">mail.example.com</td><td class="num" data-v="22"><div class="bar-cell"><div class="bg" style="width:32.4%"></div><span>22</span></div></td><td class="num" data-v="13.9241">13,9%</td>
+  </tr>
+  <tr><td class="num" data-v="5">5</td><td class="key">partner.example.net</td><td class="num" data-v="13"><div class="bar-cell"><div class="bg" style="width:19.1%"></div><span>13</span></div></td><td class="num" data-v="8.2278">8,2%</td>
+  </tr>
+  <tr><td class="num" data-v="6">6</td><td class="key">shop.example.com</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:1.5%"></div><span>1</span></div></td><td class="num" data-v="0.6329">0,6%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>IP sorgenti (SMTP)</h3>
+  <p class="note">Unità: messaggi accettati. Totale 124, 6 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="day-client_ip" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">messaggi accettati</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">198.51.100.20</td><td class="num" data-v="33"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>33</span></div></td><td class="num" data-v="26.6129">26,6%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">192.0.2.11</td><td class="num" data-v="23"><div class="bar-cell"><div class="bg" style="width:69.7%"></div><span>23</span></div></td><td class="num" data-v="18.5484">18,5%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">198.51.100.21</td><td class="num" data-v="19"><div class="bar-cell"><div class="bg" style="width:57.6%"></div><span>19</span></div></td><td class="num" data-v="15.3226">15,3%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">192.0.2.12</td><td class="num" data-v="18"><div class="bar-cell"><div class="bg" style="width:54.5%"></div><span>18</span></div></td><td class="num" data-v="14.5161">14,5%</td>
+  </tr>
+  <tr><td class="num" data-v="5">5</td><td class="key">203.0.113.30</td><td class="num" data-v="16"><div class="bar-cell"><div class="bg" style="width:48.5%"></div><span>16</span></div></td><td class="num" data-v="12.9032">12,9%</td>
+  </tr>
+  <tr><td class="num" data-v="6">6</td><td class="key">192.0.2.10</td><td class="num" data-v="15"><div class="bar-cell"><div class="bg" style="width:45.5%"></div><span>15</span></div></td><td class="num" data-v="12.0968">12,1%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>Motivi di rifiuto SMTP</h3>
+  <p class="note">Unità: eventi di rifiuto. Totale 10, 2 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="day-reject_reason" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">eventi di rifiuto</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">RCPT: 5.7.1 &lt;addr&gt;: Relay access denied</td><td class="num" data-v="8"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>8</span></div></td><td class="num" data-v="80.0000">80,0%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">END-OF-MESSAGE: 4.7.1 Try again later</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:25.0%"></div><span>2</span></div></td><td class="num" data-v="20.0000">20,0%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>Motivi di differimento</h3>
+  <p class="note">Unità: tentativi differiti. Totale 11, 5 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="day-defer_reason" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">tentativi differiti</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">4.4.1 connect to store.example.org: Connection timed out</td><td class="num" data-v="5"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>5</span></div></td><td class="num" data-v="45.4545">45,5%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">4.4.1 connect to mail.example.com: Connection timed out</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:40.0%"></div><span>2</span></div></td><td class="num" data-v="18.1818">18,2%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">4.4.1 connect to mx.example.net: Connection timed out</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:40.0%"></div><span>2</span></div></td><td class="num" data-v="18.1818">18,2%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">4.4.1 connect to mx.example.com: Connection timed out</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:20.0%"></div><span>1</span></div></td><td class="num" data-v="9.0909">9,1%</td>
+  </tr>
+  <tr><td class="num" data-v="5">5</td><td class="key">4.4.1 connect to mx.partner.example.net: Connection timed out</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:20.0%"></div><span>1</span></div></td><td class="num" data-v="9.0909">9,1%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>Motivi di fallimento (bounce)</h3>
+  <p class="note">Unità: destinatari. Totale 1, 1 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="day-bounce_reason" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">destinatari</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">5.1.1 550 5.1.1 &lt;addr&gt;: Recipient address rejected: User unknown</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>1</span></div></td><td class="num" data-v="100.0000">100,0%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>Relay di destinazione</h3>
+  <p class="note">Unità: consegne riuscite. Totale 158, 6 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="day-relay" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">consegne riuscite</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">store.example.org</td><td class="num" data-v="68"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>68</span></div></td><td class="num" data-v="43.0380">43,0%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">mx.example.net</td><td class="num" data-v="32"><div class="bar-cell"><div class="bg" style="width:47.1%"></div><span>32</span></div></td><td class="num" data-v="20.2532">20,3%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">mail.example.com</td><td class="num" data-v="22"><div class="bar-cell"><div class="bg" style="width:32.4%"></div><span>22</span></div></td><td class="num" data-v="13.9241">13,9%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">mx.example.com</td><td class="num" data-v="22"><div class="bar-cell"><div class="bg" style="width:32.4%"></div><span>22</span></div></td><td class="num" data-v="13.9241">13,9%</td>
+  </tr>
+  <tr><td class="num" data-v="5">5</td><td class="key">mx.partner.example.net</td><td class="num" data-v="13"><div class="bar-cell"><div class="bg" style="width:19.1%"></div><span>13</span></div></td><td class="num" data-v="8.2278">8,2%</td>
+  </tr>
+  <tr><td class="num" data-v="6">6</td><td class="key">mx1.example.org</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:1.5%"></div><span>1</span></div></td><td class="num" data-v="0.6329">0,6%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>IP rifiutati</h3>
+  <p class="note">Unità: eventi di rifiuto. Totale 10, 9 valori distinti.</p>
+  
+<div class="filter"><input type="search" placeholder="Filtra…" aria-label="Filtra la tabella" data-filter="day-reject_ip"><span class="filter-count"></span></div>
+<div class="table-wrap">
+<table id="day-reject_ip" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">eventi di rifiuto</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">203.0.113.137</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>2</span></div></td><td class="num" data-v="20.0000">20,0%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">192.0.2.11</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:50.0%"></div><span>1</span></div></td><td class="num" data-v="10.0000">10,0%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">192.0.2.12</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:50.0%"></div><span>1</span></div></td><td class="num" data-v="10.0000">10,0%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">203.0.113.113</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:50.0%"></div><span>1</span></div></td><td class="num" data-v="10.0000">10,0%</td>
+  </tr>
+  <tr><td class="num" data-v="5">5</td><td class="key">203.0.113.114</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:50.0%"></div><span>1</span></div></td><td class="num" data-v="10.0000">10,0%</td>
+  </tr>
+  <tr><td class="num" data-v="6">6</td><td class="key">203.0.113.116</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:50.0%"></div><span>1</span></div></td><td class="num" data-v="10.0000">10,0%</td>
+  </tr>
+  <tr><td class="num" data-v="7">7</td><td class="key">203.0.113.118</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:50.0%"></div><span>1</span></div></td><td class="num" data-v="10.0000">10,0%</td>
+  </tr>
+  <tr><td class="num" data-v="8">8</td><td class="key">203.0.113.132</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:50.0%"></div><span>1</span></div></td><td class="num" data-v="10.0000">10,0%</td>
+  </tr>
+  <tr><td class="num" data-v="9">9</td><td class="key">203.0.113.144</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:50.0%"></div><span>1</span></div></td><td class="num" data-v="10.0000">10,0%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>Utenti SASL</h3>
+  <p class="note">Unità: messaggi accettati. Totale 17, 4 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="day-sasl_user" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">messaggi accettati</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">app0</td><td class="num" data-v="6"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>6</span></div></td><td class="num" data-v="35.2941">35,3%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">app1</td><td class="num" data-v="5"><div class="bar-cell"><div class="bg" style="width:83.3%"></div><span>5</span></div></td><td class="num" data-v="29.4118">29,4%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">app3</td><td class="num" data-v="4"><div class="bar-cell"><div class="bg" style="width:66.7%"></div><span>4</span></div></td><td class="num" data-v="23.5294">23,5%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">app2</td><td class="num" data-v="2"><div class="bar-cell"><div class="bg" style="width:33.3%"></div><span>2</span></div></td><td class="num" data-v="11.7647">11,8%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>IP con autenticazioni SASL fallite</h3>
+  <p class="note">Unità: autenticazioni fallite. Totale 4, 4 valori distinti.</p>
+  
+
+<div class="table-wrap">
+<table id="day-sasl_fail_ip" class="sortable">
+  <thead><tr><th class="num">#</th><th>Valore</th><th class="num">autenticazioni fallite</th><th class="num">%</th></tr></thead>
+  <tbody>
+  <tr><td class="num" data-v="1">1</td><td class="key">203.0.113.154</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>1</span></div></td><td class="num" data-v="25.0000">25,0%</td>
+  </tr>
+  <tr><td class="num" data-v="2">2</td><td class="key">203.0.113.157</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>1</span></div></td><td class="num" data-v="25.0000">25,0%</td>
+  </tr>
+  <tr><td class="num" data-v="3">3</td><td class="key">203.0.113.162</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>1</span></div></td><td class="num" data-v="25.0000">25,0%</td>
+  </tr>
+  <tr><td class="num" data-v="4">4</td><td class="key">203.0.113.164</td><td class="num" data-v="1"><div class="bar-cell"><div class="bg" style="width:100.0%"></div><span>1</span></div></td><td class="num" data-v="25.0000">25,0%</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+</div>
+
+</section>
+
+<section class="section">
+  <h2>Sicurezza e composizione</h2>
+  
+  
+<div class="grid">
+<div class="card">
+  <h3>TLS e SASL</h3>
+  <p class="note">STARTTLS dalle statistiche di fine sessione di smtpd. Nessun handshake TLS registrato (tls_loglevel = 0): TLS in uscita non misurabile.</p>
+  
+
+<div class="table-wrap">
+<table id="security">
+  <thead><tr><th>Indicatore</th><th class="num">Valore</th><th>Unità</th></tr></thead>
+  <tbody>
+  <tr><td>Connessioni SMTP in ingresso</td><td class="num">126</td><td title="connessioni">connessioni</td>
+  </tr>
+  <tr><td>Sessioni concluse</td><td class="num">126</td><td title="sessioni">sessioni</td>
+  </tr>
+  <tr><td>Sessioni con STARTTLS</td><td class="num">124 (98,4%)</td><td title="sessioni">sessioni</td>
+  </tr>
+  <tr><td>Messaggi con autenticazione SASL</td><td class="num">17</td><td title="messaggi accettati">messaggi accettati</td>
+  </tr>
+  <tr><td>Autenticazioni SASL fallite</td><td class="num">4</td><td title="eventi">eventi</td>
+  </tr>
+  <tr><td>Errori TLS</td><td class="num">0</td><td title="eventi">eventi</td>
+  </tr>
+  <tr><td>Sessioni interrotte (lost connection / timeout)</td><td class="num">0</td><td title="eventi">eventi</td>
+  </tr>
+  <tr><td>Handshake TLS registrati in ingresso / uscita</td><td class="num">0 / 0</td><td title="connessioni">connessioni</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+<div class="card">
+  <h3>Composizione del traffico</h3>
+  <p class="note">Le istanze &#39;reinject&#39; sono il secondo passaggio dei messaggi dopo il content filter e non sono conteggiate come nuovi messaggi.</p>
+  
+
+<div class="table-wrap">
+<table id="composition" class="sortable">
+  <thead><tr><th>Categoria</th><th>Voce</th><th class="num">Conteggio</th></tr></thead>
+  <tbody>
+  <tr><td>Istanze di coda per origine</td><td class="key">reinject</td><td class="num" data-v="124">124</td>
+  </tr>
+  <tr><td>Istanze di coda per origine</td><td class="key">smtp</td><td class="num" data-v="124">124</td>
+  </tr>
+  <tr><td>Istanze di coda per origine</td><td class="key">notification</td><td class="num" data-v="1">1</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">smtp/sent</td><td class="num" data-v="157">157</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">smtp/deferred</td><td class="num" data-v="11">11</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">lmtp/sent</td><td class="num" data-v="1">1</td>
+  </tr>
+  <tr><td>Righe di stato per agente</td><td class="key">smtp/bounced</td><td class="num" data-v="1">1</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+</div>
+
+</section>
+
+<section class="section">
+  <h2>Copertura</h2>
+  
+  
+<div class="card">
+  <h3>Copertura per intervallo</h3>
+  <p class="note">Un intervallo senza righe di log non è traffico zero: è un dato assente.</p>
+  
+
+<div class="table-wrap">
+<table id="coverage">
+  <thead><tr><th>Intervallo</th><th>Copertura</th><th class="num">Osservato</th></tr></thead>
+  <tbody>
+  <tr class="complete"><td>00:00–00:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>01:00–01:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>02:00–02:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>03:00–03:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>04:00–04:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>05:00–05:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>06:00–06:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>07:00–07:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>08:00–08:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>09:00–09:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>10:00–10:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>11:00–11:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>12:00–12:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>13:00–13:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>14:00–14:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>15:00–15:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>16:00–16:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>17:00–17:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>18:00–18:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>19:00–19:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>20:00–20:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>21:00–21:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>22:00–22:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  <tr class="complete"><td>23:00–23:59</td><td><span class="badge complete">completa</span></td><td class="num">1,0 h</td>
+  </tr>
+  </tbody>
+</table>
+</div>
+
+
+</div>
+
+</section>
+
+</main>
+<footer>
+  <p>Generato il 13/10/2026 13:00:19 · postfix-report 6e89c66-dirty</p>
+  <p class="noprint">I conteggi indicano sempre l'unità: messaggi, destinatari, tentativi, eventi o sessioni. Definizioni in METRICS.md.</p>
+</footer>
+<script src="../assets/js/report.js"></script>
+</body>
+</html>

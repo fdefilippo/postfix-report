@@ -60,18 +60,31 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 
 ## Build & Test
 
-_Add your build and test commands here_
-
 ```bash
-# Example:
-# npm install
-# npm test
+make build          # static binary in bin/postfix-report (CGO_ENABLED=0)
+make check          # gofmt check, go vet, full test suite
+make test-short     # skips real-log regression and headless-browser tests
+make bench          # parser and pipeline benchmarks
+make validate       # independent recount vs program on samples/maillog or ./maillog
+make demo           # regenerate demo/ from synthetic data (cmd/synthlog)
 ```
+
+Set `GOTMPDIR`/`TMPDIR` under `~/tmp` when running go commands (user preference: never /tmp).
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+Pipeline: `internal/logparse` (syntax only) → `internal/ingest` (sources by content
+fingerprint, checkpoints, dedup, coverage segments) → `internal/correlate` (queue-instance
+lifecycles, reinjection linking, recipients, deliveries, rejects) → `internal/aggregate`
+(agg_hour/agg_dim per local day, always recomputed per whole day) → `internal/query` →
+`internal/report` (static HTML, embedded assets, atomic writes, hash-based skip).
+`internal/app` sequences stages and invalidation; `internal/verify` checks invariants.
+Metric definitions: METRICS.md. Observed log formats: LOG_ANALYSIS.md.
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- The real `maillog` contains personal data: never commit it, nor reports/DBs built from it
+  (`reports-real/` is git-ignored). Test fixtures must be synthetic (example.org, RFC 5737 IPs).
+- Every Go file starts with the GPL-3.0-or-later SPDX header (author Francesco Defilippo).
+- Missing data is never shown as zero; every count states its unit.
+- Any change to metric semantics must update METRICS.md and keep `make validate` at zero differences.

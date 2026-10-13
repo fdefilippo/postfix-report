@@ -1,0 +1,120 @@
+{{define "page" -}}
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>{{.Title}} · {{.SiteTitle}}</title>
+<link rel="stylesheet" href="{{.Root}}assets/css/report.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{.Root}}index.html">{{.SiteTitle}}<small>postfix-report</small></a>
+  <nav aria-label="Navigazione principale">
+    {{- range .Nav}}<a href="{{.Href}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Text}}</a>{{end -}}
+  </nav>
+</header>
+<main>
+  <div class="pagehead">
+    <div>
+      {{- if .Crumbs}}<div class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}} › {{end}}<a href="{{$c.Href}}">{{$c.Text}}</a>{{end}}</div>{{end}}
+      <h1>{{.Title}}</h1>
+      {{- if .Subtitle}}<p class="sub">{{.Subtitle}}</p>{{end}}
+    </div>
+    {{- if or .Prev .Next .Up}}
+    <nav class="pager" aria-label="Periodi adiacenti">
+      {{if .Prev}}<a href="{{.Prev.Href}}" rel="prev">‹ {{.Prev.Text}}</a>{{else}}<span>‹</span>{{end}}
+      {{if .Up}}<a href="{{.Up.Href}}">{{.Up.Text}}</a>{{end}}
+      {{if .Next}}<a href="{{.Next.Href}}" rel="next">{{.Next.Text}} ›</a>{{else}}<span>›</span>{{end}}
+    </nav>
+    {{- end}}
+  </div>
+  {{range .Banners}}<div class="banner {{.Level}}" role="status">{{.Text}}</div>
+  {{end}}
+  {{- range .Blocks}}{{template "block" .}}{{end}}
+</main>
+<footer>
+  <p>{{if .DataAsOf}}Dati fino a {{.DataAsOf}} · {{end}}Generato il {{.Generated}} · postfix-report {{.Version}}{{if .Privacy}} · {{.Privacy}}{{end}}</p>
+  <p class="noprint">I conteggi indicano sempre l'unità: messaggi, destinatari, tentativi, eventi o sessioni. Definizioni in METRICS.md.</p>
+</footer>
+<script src="{{.Root}}assets/js/report.js"></script>
+</body>
+</html>
+{{end}}
+
+{{define "block"}}
+{{- if eq .Kind "section"}}
+<section class="section">
+  {{if .Title}}<h2>{{.Title}}</h2>{{end}}
+  {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
+  {{range .Children}}{{template "block" .}}{{end}}
+</section>
+{{- else if eq .Kind "grid"}}
+<div class="grid">{{range .Children}}{{template "block" .}}{{end}}</div>
+{{- else if eq .Kind "card"}}
+<div class="card">
+  {{if .Title}}<h3>{{.Title}}</h3>{{end}}
+  {{if .Note}}<p class="note">{{.Note}}</p>{{end}}
+  {{range .Children}}{{template "block" .}}{{end}}
+</div>
+{{- else if eq .Kind "kpis"}}
+<div class="kpis">
+  {{- range .KPIs}}
+  <div class="kpi {{.Class}}"{{if .Title}} title="{{.Title}}"{{end}}>
+    <div class="label">{{.Label}}</div>
+    <div class="value">{{.Value}}</div>
+    <div class="unit">{{.Unit}}</div>
+    {{if .Delta}}<div class="delta {{.DeltaClass}}">{{.Delta}}</div>{{end}}
+  </div>
+  {{- end}}
+</div>
+{{- else if eq .Kind "chart"}}
+<div class="chart-wrap">
+  <div class="chart" data-chart="{{.Chart.ID}}-data"></div>
+  <script type="application/json" id="{{.Chart.ID}}-data">{{.Chart.JSON}}</script>
+  <p class="nojs-note">Il grafico richiede JavaScript: i dati sono nella tabella qui sotto.</p>
+  {{if .Chart.Table}}<details class="data"><summary>Mostra i dati del grafico</summary>{{template "table" .Chart.Table}}</details>{{end}}
+</div>
+{{- else if eq .Kind "table"}}
+{{template "table" .Table}}
+{{- else if eq .Kind "text"}}
+<p>{{.Text}}</p>
+{{- else if eq .Kind "archive"}}
+<div class="archive">
+  {{- range .Archive}}
+  <div class="card">
+    <h3><a href="{{.Href}}">{{.Year}}</a> <span class="muted">· {{.Total}}</span></h3>
+    <div class="months">
+      {{- range .Months}}
+      {{if .Href}}<a href="{{.Href}}" class="{{.Status}}" title="{{.Status}}">{{.Label}}<small>{{.Value}}</small></a>{{else}}<span>{{.Label}}<small>—</small></span>{{end}}
+      {{- end}}
+    </div>
+  </div>
+  {{- end}}
+</div>
+{{- end}}
+{{end}}
+
+{{define "table"}}
+{{- if .Filter}}<div class="filter"><input type="search" placeholder="Filtra…" aria-label="Filtra la tabella" data-filter="{{.ID}}"><span class="filter-count"></span></div>{{end}}
+<div class="table-wrap">
+<table id="{{.ID}}"{{if .Sortable}} class="sortable"{{end}}>
+  <thead><tr>{{range .Head}}<th{{if .Num}} class="num"{{end}}>{{.Text}}</th>{{end}}</tr></thead>
+  <tbody>
+  {{- range .Rows}}
+  <tr{{if .Class}} class="{{.Class}}"{{end}}>
+    {{- range .Cells}}<td{{if .Num}} class="num"{{else if .Key}} class="key"{{end}}{{if .Sort}} data-v="{{.Sort}}"{{end}}{{if .Title}} title="{{.Title}}"{{end}}>
+      {{- if .Bar}}<div class="bar-cell"><div class="bg" style="width:{{barWidth .Bar}}"></div><span>{{end -}}
+      {{- if .Badge}}<span class="badge {{.Badge}}">{{.Text}}</span>{{else if .Href}}<a href="{{.Href}}">{{.Text}}</a>{{else}}{{.Text}}{{end -}}
+      {{- if .Bar}}</span></div>{{end -}}
+    </td>{{end}}
+  </tr>
+  {{- else}}
+  <tr><td colspan="{{len .Head}}" class="muted">{{if .Empty}}{{.Empty}}{{else}}Nessun dato.{{end}}</td></tr>
+  {{- end}}
+  </tbody>
+</table>
+</div>
+{{end}}

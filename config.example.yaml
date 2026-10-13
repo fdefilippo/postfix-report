@@ -1,0 +1,66 @@
+# postfix-report — configurazione di esempio.
+# Tutte le chiavi sono facoltative: i valori mostrati sono i default, salvo
+# dove indicato. Chiavi sconosciute sono un errore (validazione stretta).
+# Verifica: postfix-report -config /etc/postfix-report/config.yaml check-config
+
+database:
+  # Database SQLite (storico). NON deve stare sotto output.directory.
+  # Il file contiene dati personali: permessi 0640, directory 0750.
+  path: /var/lib/postfix-report/report.db
+
+input:
+  # File o glob da importare con "update" (anche .gz). L'ordine non conta:
+  # i file sono elaborati dal più vecchio al più recente e riconosciuti dal
+  # contenuto, quindi la rotazione non provoca reimportazioni.
+  paths:
+    - /var/log/maillog
+    - /var/log/maillog-*
+  # Fuso orario dei timestamp syslog senza offset (formato BSD).
+  timezone: Europe/Rome
+  # Anno dei timestamp BSD ("Oct 11 03:22:02" non contiene l'anno).
+  # 0 = dedotto dalla data di modifica del file (con passaggio dic→gen).
+  year: 0
+  # Importa solo questi host syslog (vuoto = tutti).
+  hosts: []
+
+correlation:
+  # Trasporti che passano la posta a un content filter: le righe con questo
+  # relay sono passaggi interni, non consegne.
+  filter_transports: [filter]
+  # UID con cui il content filter reinietta i messaggi (pickup uid=N): la
+  # reiniezione è collegata al messaggio originale e non conta come nuovo
+  # messaggio. Lasciare vuoto ([]) se non c'è un content filter via sendmail.
+  reinject_uids: [97]
+  # Distanza massima tra accettazione dell'originale e della reiniezione.
+  reinject_window: 120s
+  # Istanze di coda senza eventi per questo tempo sono chiuse come "stale".
+  stale_after: 168h
+
+coverage:
+  # Due righe consecutive più distanti di così delimitano un buco di
+  # copertura: l'intervallo è mostrato come "dati assenti", non come zero.
+  gap_threshold: 60m
+
+output:
+  # Directory pubblicata dal web server: contiene solo HTML, CSS e JS.
+  directory: /var/www/html/postfix-report
+  title: Postfix report
+
+reports:
+  daily: true
+  weekly: true
+  monthly: true
+  yearly: true
+  # Righe mostrate in ogni classifica.
+  top_limit: 20
+
+privacy:
+  # Pseudonimizza parte locale degli indirizzi e utenti SASL (HMAC con chiave
+  # segreta conservata solo nel database). Disattivato di default.
+  anonymize_email: false
+  # Tronca gli IP a /24 (IPv4) e /48 (IPv6). Disattivato di default.
+  anonymize_ip: false
+
+logging:
+  # debug, info, warn, error (su stderr; con systemd finisce nel journal).
+  level: info

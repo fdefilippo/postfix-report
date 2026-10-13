@@ -1,0 +1,46 @@
+# Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Unit]
+Description=postfix-report: importa i log di Postfix e aggiorna i report statici
+Documentation=https://github.com/fdefilippo/postfix-report
+After=local-fs.target rsyslog.service
+
+[Service]
+Type=oneshot
+User=postfix-report
+Group=postfix-report
+# Debian/Ubuntu: /var/log/mail.log è root:adm 0640.
+# Enterprise Linux: /var/log/maillog è root:root 0600, usare le ACL (README).
+SupplementaryGroups=adm
+ExecStart=/usr/local/bin/postfix-report -config /etc/postfix-report/config.yaml update
+# 3 = un'altra esecuzione è in corso (lock): non è un errore.
+SuccessExitStatus=3
+UMask=0022
+Nice=10
+IOSchedulingClass=idle
+
+# Hardening: il programma non usa la rete e scrive solo DB e directory HTML.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+IPAddressDeny=any
+RestrictAddressFamilies=AF_UNIX
+ReadOnlyPaths=/var/log
+ReadWritePaths=/var/lib/postfix-report /var/www/html/postfix-report
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=

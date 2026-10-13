@@ -1,0 +1,15 @@
+# Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Unit]
+Description=Aggiornamento periodico di postfix-report
+
+[Timer]
+# Ogni ora. Per cambiare frequenza: systemctl edit postfix-report.timer
+# e ridefinire OnCalendar (es. OnCalendar=*:0/15 per ogni 15 minuti).
+OnCalendar=hourly
+RandomizedDelaySec=120
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

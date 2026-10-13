@@ -1,0 +1,5 @@
+# /etc/cron.d/postfix-report — alternativa al timer systemd (usarne uno solo).
+# Il lock interno impedisce esecuzioni concorrenti (codice di uscita 3).
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+7 * * * * postfix-report /usr/local/bin/postfix-report -config /etc/postfix-report/config.yaml update 2>&1 | logger -t postfix-report
