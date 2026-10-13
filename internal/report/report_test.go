@@ -290,6 +290,19 @@ func TestSelectiveRegeneration(t *testing.T) {
 	if !after[untouched].Equal(before[untouched]) {
 		t.Error("untouched page file was rewritten")
 	}
+	// A different layout (new version, templates or report options) renders
+	// every page once, then nothing.
+	g.Cfg.Reports.TopLimit = 5
+	res, err = g.GenerateDirty(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := len(g.AllPages()) + 1; res.Rendered != want || res.Written == 0 {
+		t.Errorf("layout change rendered %d pages, wrote %d; want %d rendered", res.Rendered, res.Written, want)
+	}
+	if res, err = g.GenerateDirty(ctx); err != nil || res.Rendered != 0 {
+		t.Errorf("second run after layout change rendered %d pages (%v)", res.Rendered, err)
+	}
 }
 
 func TestGenerateOneOutOfRange(t *testing.T) {

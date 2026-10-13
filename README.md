@@ -229,6 +229,9 @@ Il file di configurazione si indica con `-config FILE` (default
    confronti) e l'indice.
 6. Rigenera le pagine invalidate. Una pagina è riscritta solo se il suo
    contenuto è cambiato, scrivendo su un file temporaneo e rinominandolo.
+   Dopo un aggiornamento del programma o una modifica alle opzioni dei report
+   (`output`, `reports`, `privacy`) la prima esecuzione rigenera tutte le
+   pagine, così l'archivio ha un aspetto uniforme.
 
 Un lock (`<database>.lock`, `flock`) impedisce esecuzioni concorrenti.
 

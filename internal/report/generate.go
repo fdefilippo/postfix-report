@@ -139,6 +139,13 @@ func (g *Generator) GenerateAll(ctx context.Context) (*Result, error) {
 	if _, err := g.DB.Exec(`DELETE FROM dirty_pages`); err != nil {
 		return res, err
 	}
+	layout, err := g.layoutKey()
+	if err != nil {
+		return res, err
+	}
+	if err := store.SetMeta(g.DB, "report_layout", layout); err != nil {
+		return res, err
+	}
 	return res, g.saveRange()
 }
 
@@ -169,6 +176,10 @@ func (g *Generator) GenerateDirty(ctx context.Context) (*Result, error) {
 		return res, err
 	}
 	if err := g.invalidateRangeChange(); err != nil {
+		return res, err
+	}
+	layout, err := g.invalidateLayoutChange()
+	if err != nil {
 		return res, err
 	}
 	rows, err := g.DB.Query(`SELECT kind, key FROM dirty_pages ORDER BY kind, key`)
@@ -217,7 +228,58 @@ func (g *Generator) GenerateDirty(ctx context.Context) (*Result, error) {
 			return res, err
 		}
 	}
+	if err := store.SetMeta(g.DB, "report_layout", layout); err != nil {
+		return res, err
+	}
 	return res, g.saveRange()
+}
+
+// layoutKey identifies what, besides the data, shapes the pages: program
+// version, embedded templates and assets, and the report options of the
+// configuration.
+func (g *Generator) layoutKey() (string, error) {
+	h := sha256.New()
+	fmt.Fprintf(h, "%s\n%+v\n%+v\n%+v\n%s\n", g.Version, g.Cfg.Output, g.Cfg.Reports, g.Cfg.Privacy, g.loc())
+	for _, f := range []fs.FS{templateFS, assetFS} {
+		err := fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			b, err := fs.ReadFile(f, path)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(h, "%s %d\n", path, len(b))
+			h.Write(b)
+			return nil
+		})
+		if err != nil {
+			return "", err
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// invalidateLayoutChange marks every page as dirty when the layout key
+// differs from the one of the last generation (new program version or
+// changed report options), so that "update" after an upgrade rewrites the
+// whole archive once. Pages whose output is unchanged are still skipped.
+func (g *Generator) invalidateLayoutChange() (string, error) {
+	key, err := g.layoutKey()
+	if err != nil {
+		return "", err
+	}
+	old, err := store.GetMeta(g.DB, "report_layout")
+	if err != nil || old == key {
+		return key, err
+	}
+	for _, p := range g.AllPages() {
+		if _, err := g.DB.Exec(`INSERT OR IGNORE INTO dirty_pages(kind, key) VALUES(?,?)`, string(p.Kind), p.Key); err != nil {
+			return "", err
+		}
+	}
+	_, err = g.DB.Exec(`INSERT OR IGNORE INTO dirty_pages(kind, key) VALUES('index','index')`)
+	return key, err
 }
 
 // rangeKey describes the data range for change detection.
