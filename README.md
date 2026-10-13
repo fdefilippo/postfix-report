@@ -79,6 +79,10 @@ make bench        # benchmark del parser e della pipeline
 
 ## Installazione con RPM (Enterprise Linux 9/10)
 
+Gli RPM già compilati per EL9 ed EL10 sono allegati alle
+[release su GitHub](https://github.com/fdefilippo/postfix-report/releases),
+con SRPM, sorgenti e `SHA256SUMS`. Per compilarli in proprio:
+
 Su una macchina EL con `golang` (≥ 1.25) e `rpm-build` installati:
 
 ```bash
@@ -89,7 +93,12 @@ sudo dnf install dist/rpmbuild/RPMS/x86_64/postfix-report-*.rpm
 
 `make rpm` crea prima `dist/postfix-report-<versione>.tar.gz` (sorgenti più
 `vendor/`, quindi `rpmbuild` non usa la rete) e poi lancia `rpmbuild -ba`.
-`make srpm` produce solo l'SRPM, utile con `mock`. La versione è quella
+`make srpm` produce solo l'SRPM, utile con `mock`. Per pubblicare una
+release si aggiornano `Version` e `%changelog` nello spec e la versione in
+`docs/postfix-report.1`, poi si crea e si invia il tag (`git tag -a v0.2 &&
+git push origin v0.2`): il workflow `.github/workflows/release.yml` controlla
+le versioni (`make release-check`), compila gli RPM e crea la release. Il
+workflow parte solo sui tag. La versione è quella
 indicata nello spec (`packaging/rpm/postfix-report.spec`). Il binario è
 statico: un RPM compilato su EL9 si installa anche su EL10.
 

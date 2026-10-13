@@ -31,7 +31,7 @@ jobs:
       - name: Build dependencies
         run: dnf -y install golang rpm-build systemd-rpm-macros git make tar gzip findutils
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check tag and versions
         run: |
@@ -41,7 +41,7 @@ jobs:
       - name: Build RPM and SRPM
         run: make rpm
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rpm-${{ matrix.dist }}
           path: |
@@ -50,7 +50,7 @@ jobs:
           if-no-files-found: error
 
       - if: matrix.dist == 'el9'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: source
           path: dist/postfix-report-*.tar.gz
@@ -62,13 +62,17 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: assets
           merge-multiple: true
 
-      - name: Checksums
-        run: cd assets && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
+      # The artifacts keep their RPMS/<arch>/ and SRPMS/ subdirectories.
+      - name: Collect assets and checksums
+        run: |
+          mkdir release
+          find assets -type f -exec mv -t release {} +
+          cd release && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
 
       - name: Create release
         env:
@@ -87,7 +91,7 @@ jobs:
           e \`systemctl enable --now postfix-report.timer\` (vedi README e \`man postfix-report\`).
           Il tarball dei sorgenti include \`vendor/\`: \`rpmbuild -ta\` non richiede la rete.
           EOF
-          gh release create "$GITHUB_REF_NAME" assets/* \
+          gh release create "$GITHUB_REF_NAME" release/* \
             --repo "$GITHUB_REPOSITORY" \
             --title "postfix-report $version" \
             --notes-file notes.md \
