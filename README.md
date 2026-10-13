@@ -61,7 +61,44 @@ make check        # gofmt, go vet, test
 make bench        # benchmark del parser e della pipeline
 ```
 
-## Installazione (esempio per Enterprise Linux)
+## Installazione con RPM (Enterprise Linux 9/10)
+
+Su una macchina EL con `golang` (≥ 1.25) e `rpm-build` installati:
+
+```bash
+sudo dnf install golang rpm-build systemd-rpm-macros git make
+make rpm          # dist/rpmbuild/RPMS/x86_64/postfix-report-0.1-1.el9.x86_64.rpm
+sudo dnf install dist/rpmbuild/RPMS/x86_64/postfix-report-*.rpm
+```
+
+`make rpm` crea prima `dist/postfix-report-<versione>.tar.gz` (sorgenti più
+`vendor/`, quindi `rpmbuild` non usa la rete) e poi lancia `rpmbuild -ba`.
+`make srpm` produce solo l'SRPM, utile con `mock`. La versione è quella
+indicata nello spec (`packaging/rpm/postfix-report.spec`). Il binario è
+statico: un RPM compilato su EL9 si installa anche su EL10.
+
+Il pacchetto installa:
+
+| Percorso | Contenuto |
+|---|---|
+| `/usr/bin/postfix-report` | binario |
+| `/etc/postfix-report/config.yaml` | configurazione (`root:postfix-report 0640`, non sovrascritta negli aggiornamenti) |
+| `/usr/lib/systemd/system/postfix-report.{service,timer}` | unità systemd (timer non abilitato) |
+| `/var/lib/postfix-report/` | database (`0750`) |
+| `/var/www/html/postfix-report/` | report HTML (`0755`) |
+| `/usr/share/doc/postfix-report/examples/` | configurazioni di esempio per Apache, Nginx e cron |
+
+Crea anche l'utente di sistema `postfix-report`. Dopo l'installazione restano
+da fare: i permessi di lettura dei log (sotto), il controllo della
+configurazione e l'abilitazione del timer:
+
+```bash
+sudo postfix-report -config /etc/postfix-report/config.yaml check-config
+sudo runuser -u postfix-report -- postfix-report -config /etc/postfix-report/config.yaml update
+sudo systemctl enable --now postfix-report.timer
+```
+
+## Installazione manuale (esempio per Enterprise Linux)
 
 ```bash
 # 1. Binario e documentazione
@@ -100,7 +137,7 @@ Il servizio legge i log con l'utente `postfix-report`.
      `/etc/logrotate.d/rsyslog`. Se la rotazione comprime i file, verificare
      che i `.gz` restino leggibili.
 
-  Verifica: `sudo -u postfix-report head -1 /var/log/maillog`.
+  Verifica: `runuser -u postfix-report -- head -1 /var/log/maillog`.
 
 ### Permessi di scrittura
 
@@ -182,7 +219,7 @@ Un lock (`<database>.lock`, `flock`) impedisce esecuzioni concorrenti.
 ## Esecuzione automatica (systemd)
 
 ```bash
-sudo make install-systemd
+sudo make install-systemd        # non serve se si è installato l'RPM
 sudo systemctl daemon-reload
 sudo systemctl enable --now postfix-report.timer
 systemctl list-timers postfix-report.timer

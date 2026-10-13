@@ -135,6 +135,7 @@ make test-short     # skips real-log regression and headless-browser tests
 make bench          # parser and pipeline benchmarks
 make validate       # independent recount vs program on samples/maillog or ./maillog
 make demo           # regenerate demo/ from synthetic data (cmd/synthlog)
+make rpm            # dist/rpmbuild RPM+SRPM from packaging/rpm/postfix-report.spec (EL9/EL10, binary in /usr/bin)
 ```
 
 Set `GOTMPDIR`/`TMPDIR` under `~/tmp` when running go commands (user preference: never /tmp).

@@ -12,7 +12,7 @@ Group=postfix-report
 # Debian/Ubuntu: /var/log/mail.log è root:adm 0640.
 # Enterprise Linux: /var/log/maillog è root:root 0600, usare le ACL (README).
 SupplementaryGroups=adm
-ExecStart=/usr/local/bin/postfix-report -config /etc/postfix-report/config.yaml update
+ExecStart=/usr/bin/postfix-report -config /etc/postfix-report/config.yaml update
 # 3 = un'altra esecuzione è in corso (lock): non è un errore.
 SuccessExitStatus=3
 UMask=0022
