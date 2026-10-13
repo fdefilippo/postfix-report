@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "mailstats",
+  "project_id": "c920e831-dcfe-479e-b897-a7907f7f267a"
+}
