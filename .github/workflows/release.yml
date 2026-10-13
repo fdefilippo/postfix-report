@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Release: runs only when a tag v<version> is pushed (e.g. git tag v0.1 &&
-# git push origin v0.1). Builds the RPMs for Enterprise Linux 9 and 10 in
+# git push origin v0.1). Builds the RPMs for Enterprise Linux 8, 9 and 10 in
 # Oracle Linux containers, then creates the GitHub release with RPMs, SRPMs,
 # source tarball (with vendor/) and SHA256SUMS. The tag must match the
 # Version in packaging/rpm/postfix-report.spec and the man page.
@@ -23,6 +23,8 @@ jobs:
     strategy:
       matrix:
         include:
+          - dist: el8
+            image: docker.io/library/oraclelinux:8
           - dist: el9
             image: docker.io/library/oraclelinux:9
           - dist: el10
@@ -83,6 +85,7 @@ jobs:
           Pacchetti per Enterprise Linux (RHEL, AlmaLinux, Rocky, Oracle Linux):
 
           \`\`\`
+          dnf install ./postfix-report-${version}-1.el8.x86_64.rpm    # EL8
           dnf install ./postfix-report-${version}-1.el9.x86_64.rpm    # EL9
           dnf install ./postfix-report-${version}-1.el10.x86_64.rpm   # EL10
           \`\`\`

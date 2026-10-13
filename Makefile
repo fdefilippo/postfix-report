@@ -9,6 +9,8 @@ GO       ?= go
 # Static, CGO-free binary: runs on any Linux of the same architecture
 # (including Enterprise Linux 8/9/10) without SQLite libraries.
 export CGO_ENABLED := 0
+# Baseline x86-64: the Go toolchain of EL9/EL10 defaults to v2/v3.
+export GOAMD64 ?= v1
 
 REAL_LOG ?= $(firstword $(wildcard samples/maillog) $(wildcard maillog))
 

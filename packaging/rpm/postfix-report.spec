@@ -1,7 +1,7 @@
 # Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Pacchetto per Enterprise Linux 9/10 (RHEL, AlmaLinux, Rocky, Oracle Linux).
+# Pacchetto per Enterprise Linux 8/9/10 (RHEL, AlmaLinux, Rocky, Oracle Linux).
 # Dal repository: make rpm (crea il tarball dei sorgenti con vendor/ e
 # lancia rpmbuild). Il tarball contiene questo spec: rpmbuild -ta funziona.
 
@@ -9,7 +9,7 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.1
+Version:        0.1.1
 Release:        1%{?dist}
 Summary:        Statistiche Postfix con storico SQLite e report HTML statici
 
@@ -45,6 +45,9 @@ cp -p deploy/cron/%{name} examples/cron-%{name}
 
 %build
 export CGO_ENABLED=0
+# The EL9/EL10 Go toolchain defaults to GOAMD64=v2/v3 (go.env): the binary
+# would refuse to start on older CPUs and on VMs with a generic CPU model.
+export GOAMD64=v1
 export GOFLAGS="-mod=vendor -trimpath"
 export GOTOOLCHAIN=local
 export GOPROXY=off
@@ -53,7 +56,11 @@ go build -ldflags "-s -w -X main.version=%{version}-%{release}" \
     -o bin/%{name} ./cmd/postfix-report
 
 %check
+%ifarch x86_64
+go version -m bin/%{name} | grep -q 'GOAMD64=v1' || { echo "binary not built for GOAMD64=v1"; exit 1; }
+%endif
 export CGO_ENABLED=0
+export GOAMD64=v1
 export GOFLAGS="-mod=vendor"
 export GOTOOLCHAIN=local
 export GOPROXY=off
@@ -103,5 +110,10 @@ exit 0
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Tue Oct 13 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1.1-1
+- Binario compilato per x86-64 di base (GOAMD64=v1): la 0.1 non partiva su
+  CPU senza x86-64-v2.
+- Pacchetto anche per Enterprise Linux 8.
+
 * Tue Oct 13 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1-1
 - Primo pacchetto RPM.

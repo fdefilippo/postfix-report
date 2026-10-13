@@ -77,9 +77,9 @@ make check        # gofmt, go vet, test
 make bench        # benchmark del parser e della pipeline
 ```
 
-## Installazione con RPM (Enterprise Linux 9/10)
+## Installazione con RPM (Enterprise Linux 8/9/10)
 
-Gli RPM già compilati per EL9 ed EL10 sono allegati alle
+Gli RPM già compilati per EL8, EL9 ed EL10 sono allegati alle
 [release su GitHub](https://github.com/fdefilippo/postfix-report/releases),
 con SRPM, sorgenti e `SHA256SUMS`. Per compilarli in proprio:
 
