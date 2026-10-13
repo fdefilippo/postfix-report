@@ -136,6 +136,7 @@ make bench          # parser and pipeline benchmarks
 make validate       # independent recount vs program on samples/maillog or ./maillog
 make demo           # regenerate demo/ from synthetic data (cmd/synthlog)
 make rpm            # dist/rpmbuild RPM+SRPM from packaging/rpm/postfix-report.spec (EL9/EL10, binary in /usr/bin)
+make deb [DEB_ARCH=arm64]   # dist/postfix-report_<ver>-1_<arch>.deb via dpkg-deb (packaging/deb/)
 make release-check TAG=v0.2  # tag must match spec Version and man page; pushing a v* tag runs .github/workflows/release.yml
 ```
 

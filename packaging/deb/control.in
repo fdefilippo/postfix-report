@@ -1,0 +1,16 @@
+Package: postfix-report
+Version: @VERSION@
+Architecture: @ARCH@
+Maintainer: Francesco Defilippo <francesco@defilippo.org>
+Installed-Size: @SIZE@
+Depends: passwd
+Section: mail
+Priority: optional
+Homepage: https://github.com/fdefilippo/postfix-report
+Description: Postfix statistics with SQLite history and static HTML reports
+ postfix-report reads the Postfix logs (rotated or gzip-compressed too),
+ keeps the history in a SQLite database and writes static HTML reports
+ (daily, ISO weekly, monthly, yearly) that work from any static web server
+ or file://. Import is incremental and idempotent; log coverage is stated
+ explicitly, so missing data is never shown as zero. A systemd timer
+ updates the reports every hour.

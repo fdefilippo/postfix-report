@@ -16,6 +16,9 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	// Embedded zoneinfo: input.timezone works on systems without tzdata
+	// (minimal containers, stripped installs).
+	_ "time/tzdata"
 
 	"github.com/fdefilippo/postfix-report/internal/app"
 	"github.com/fdefilippo/postfix-report/internal/config"

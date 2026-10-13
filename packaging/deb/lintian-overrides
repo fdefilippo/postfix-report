@@ -1,0 +1,7 @@
+# Go binary, statically linked by design (pure-Go SQLite, no cgo).
+postfix-report: statically-linked-binary [usr/bin/postfix-report]
+# Private history (e-mail addresses, IP addresses) and its configuration.
+postfix-report: non-standard-dir-perm 0750 != 0755 [var/lib/postfix-report/]
+postfix-report: non-standard-file-perm 0640 != 0644 [etc/postfix-report/config.yaml]
+# Distributed through GitHub releases, not uploaded to the Debian archive.
+postfix-report: initial-upload-closes-no-bugs [usr/share/doc/postfix-report/changelog.Debian.gz:1]

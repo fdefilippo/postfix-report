@@ -1,0 +1,41 @@
+#!/bin/sh
+# Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -e
+
+if [ "$1" = "configure" ]; then
+	getent group postfix-report >/dev/null || groupadd --system postfix-report
+	getent passwd postfix-report >/dev/null || \
+		useradd --system --gid postfix-report --home-dir /var/lib/postfix-report \
+			--no-create-home --shell /usr/sbin/nologin --comment postfix-report postfix-report
+	# Report directory: Debian packages may not ship files under /var/www.
+	[ -d /var/www/html/postfix-report ] || install -d -m 0755 /var/www/html/postfix-report
+	# Database (private), reports and configuration; dpkg-statoverride wins.
+	for d in /var/lib/postfix-report:0750:postfix-report /var/www/html/postfix-report:0755:postfix-report \
+		/etc/postfix-report/config.yaml:0640:root; do
+		path=${d%%:*}
+		rest=${d#*:}
+		if ! dpkg-statoverride --list "$path" >/dev/null 2>&1; then
+			chown "${rest#*:}:postfix-report" "$path"
+			chmod "${rest%%:*}" "$path"
+		fi
+	done
+	# The timer is not enabled by default (as in the RPM): the logs must be
+	# readable and the configuration checked first. An existing enablement
+	# is kept on upgrade (debhelper's snippet for units not enabled).
+	if command -v deb-systemd-helper >/dev/null 2>&1; then
+		if deb-systemd-helper debian-installed postfix-report.timer; then
+			deb-systemd-helper unmask postfix-report.timer >/dev/null || true
+			if deb-systemd-helper --quiet was-enabled postfix-report.timer; then
+				deb-systemd-helper enable postfix-report.timer >/dev/null || true
+			fi
+		fi
+		# Record the unit's symlinks in the state file, so that purge
+		# removes them.
+		deb-systemd-helper update-state postfix-report.timer >/dev/null || true
+	fi
+	if [ -d /run/systemd/system ]; then
+		systemctl --system daemon-reload >/dev/null || true
+	fi
+fi
+exit 0

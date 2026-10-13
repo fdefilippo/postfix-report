@@ -21,7 +21,16 @@ DIST_NAME      := $(BINARY)-$(RPM_VERSION)
 RPM_TOPDIR     ?= $(CURDIR)/dist/rpmbuild
 RPMBUILD_FLAGS ?=
 
-.PHONY: all build test test-short test-race bench vet fmt-check check validate demo install install-systemd uninstall dist rpm srpm release-check clean
+# Debian package, assembled with dpkg-deb around the static binary
+# (DEB_ARCH=amd64 or arm64; Debian's own Go is too old for this module).
+DEB_ARCH    ?= amd64
+DEB_VERSION := $(RPM_VERSION)-1
+DEB_ROOT    := dist/deb/$(DEB_ARCH)/root
+DEB_DOC     := $(DEB_ROOT)/usr/share/doc/$(BINARY)
+DEB_FILE    := dist/$(BINARY)_$(DEB_VERSION)_$(DEB_ARCH).deb
+DEB_DATE    := $(shell git log -1 --format=%cD 2>/dev/null || date -R)
+
+.PHONY: all build test test-short test-race bench vet fmt-check check validate demo install install-systemd uninstall dist rpm srpm deb release-check clean
 
 all: check build
 
@@ -117,6 +126,39 @@ srpm: dist
 	mkdir -p $(RPM_TOPDIR)/SOURCES
 	cp dist/$(DIST_NAME).tar.gz $(RPM_TOPDIR)/SOURCES/
 	rpmbuild -bs --define '_topdir $(RPM_TOPDIR)' $(RPMBUILD_FLAGS) $(RPM_SPEC)
+
+# Debian/Ubuntu package. Log paths default to /var/log/mail.log* (root:adm
+# 0640, readable through the unit's SupplementaryGroups=adm).
+deb:
+	@command -v dpkg-deb >/dev/null || { echo "dpkg-deb not found"; exit 1; }
+	@test -n "$(RPM_VERSION)" || { echo "Version not found in $(RPM_SPEC)"; exit 1; }
+	rm -rf dist/deb/$(DEB_ARCH) && mkdir -p $(DEB_ROOT)/DEBIAN
+	GOOS=linux GOARCH=$(DEB_ARCH) $(GO) build -trimpath -ldflags '-s -w -X main.version=$(DEB_VERSION)' -o $(DEB_ROOT)/usr/bin/$(BINARY) ./cmd/postfix-report
+	install -D -m 0644 deploy/systemd/postfix-report.service $(DEB_ROOT)/usr/lib/systemd/system/postfix-report.service
+	install -D -m 0644 deploy/systemd/postfix-report.timer $(DEB_ROOT)/usr/lib/systemd/system/postfix-report.timer
+	install -d -m 0755 $(DEB_ROOT)/etc/postfix-report $(DEB_ROOT)/usr/share/man/man1 $(DEB_DOC)/examples
+	install -D -m 0644 packaging/deb/lintian-overrides $(DEB_ROOT)/usr/share/lintian/overrides/$(BINARY)
+	sed -e 's|/var/log/maillog-\*|/var/log/mail.log.*|' -e 's|/var/log/maillog$$|/var/log/mail.log|' config.example.yaml > $(DEB_ROOT)/etc/postfix-report/config.yaml
+	chmod 0640 $(DEB_ROOT)/etc/postfix-report/config.yaml
+	install -d -m 0750 $(DEB_ROOT)/var/lib/postfix-report
+	gzip -9n -c docs/postfix-report.1 > $(DEB_ROOT)/usr/share/man/man1/postfix-report.1.gz
+	install -m 0644 packaging/deb/copyright $(DEB_ROOT)/etc/postfix-report/config.yaml $(DEB_DOC)/
+	mv $(DEB_DOC)/config.yaml $(DEB_DOC)/config.example.yaml
+	for f in README.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md; do gzip -9n -c $$f > $(DEB_DOC)/$$f.gz; done
+	install -m 0644 deploy/apache/postfix-report.conf $(DEB_DOC)/examples/apache-postfix-report.conf
+	install -m 0644 deploy/nginx/postfix-report.conf $(DEB_DOC)/examples/nginx-postfix-report.conf
+	install -m 0644 deploy/cron/postfix-report $(DEB_DOC)/examples/cron-postfix-report
+	printf '%s (%s) unstable; urgency=medium\n\n  * Upstream release %s (see the GitHub release notes).\n\n -- Francesco Defilippo <francesco@defilippo.org>  %s\n' \
+		$(BINARY) $(DEB_VERSION) $(RPM_VERSION) '$(DEB_DATE)' | gzip -9n > $(DEB_DOC)/changelog.Debian.gz
+	chmod 0644 $(DEB_DOC)/*.gz $(DEB_DOC)/copyright $(DEB_DOC)/config.example.yaml
+	install -m 0755 packaging/deb/postinst packaging/deb/prerm packaging/deb/postrm $(DEB_ROOT)/DEBIAN/
+	echo /etc/postfix-report/config.yaml > $(DEB_ROOT)/DEBIAN/conffiles
+	sed -e 's/@VERSION@/$(DEB_VERSION)/' -e 's/@ARCH@/$(DEB_ARCH)/' \
+		-e "s/@SIZE@/$$(du -sk --exclude=DEBIAN $(DEB_ROOT) | cut -f1)/" packaging/deb/control.in > $(DEB_ROOT)/DEBIAN/control
+	chmod -R go-w $(DEB_ROOT)
+	cd $(DEB_ROOT) && find . -type f ! -path './DEBIAN/*' -printf '%P\0' | sort -z | xargs -0 md5sum > DEBIAN/md5sums
+	SOURCE_DATE_EPOCH=$$(git log -1 --format=%ct 2>/dev/null || date +%s) dpkg-deb --root-owner-group -Zxz --build $(DEB_ROOT) $(DEB_FILE)
+	@echo $(DEB_FILE)
 
 # Used by the release workflow: the tag (TAG=v0.1) must match the version in
 # the spec file and in the man page.

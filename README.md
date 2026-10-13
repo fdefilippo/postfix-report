@@ -123,6 +123,35 @@ sudo runuser -u postfix-report -- postfix-report -config /etc/postfix-report/con
 sudo systemctl enable --now postfix-report.timer
 ```
 
+## Installazione con .deb (Debian, Ubuntu)
+
+I pacchetti `.deb` per amd64 e arm64 sono allegati alle stesse release. Il
+binario è statico (con il database dei fusi orari incorporato), quindi lo
+stesso pacchetto va su Debian 12/13 e Ubuntu 22.04/24.04 e successive:
+
+```bash
+sudo apt install ./postfix-report_<versione>-1_amd64.deb
+```
+
+Per costruirlo in proprio basta Go ≥ 1.25 e `dpkg-deb`:
+`make deb` (oppure `make deb DEB_ARCH=arm64`) produce
+`dist/postfix-report_<versione>-1_<arch>.deb`. Il Go di Debian è troppo
+vecchio per questo modulo: il pacchetto si assembla attorno al binario
+compilato con il Go ufficiale, senza dipendenze di sistema.
+
+Rispetto all'RPM cambiano solo questi dettagli:
+
+* **Log**: in `/etc/postfix-report/config.yaml` i percorsi predefiniti sono
+  `/var/log/mail.log` e `/var/log/mail.log.*`. Sono file `root:adm 0640`,
+  letti dal servizio tramite `SupplementaryGroups=adm`: non servono ACL. Per
+  altri percorsi basta modificare `input.paths`.
+* **Directory dei report**: `/var/www/html/postfix-report` è creata da
+  `postinst` (la policy Debian non permette di includerla nel pacchetto).
+* **Timer**: non è abilitato all'installazione. Se l'amministratore lo
+  abilita, la scelta resta valida negli aggiornamenti; `apt purge` la azzera.
+* **Rimozione**: `apt purge` rimuove la configurazione, ma lascia database,
+  report e utente di sistema.
+
 ## Installazione manuale (esempio per Enterprise Linux)
 
 ```bash

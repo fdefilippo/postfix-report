@@ -3,7 +3,8 @@
 #
 # Release: runs only when a tag v<version> is pushed (e.g. git tag v0.1 &&
 # git push origin v0.1). Builds the RPMs for Enterprise Linux 8, 9 and 10 in
-# Oracle Linux containers, then creates the GitHub release with RPMs, SRPMs,
+# Oracle Linux containers and the .deb packages (amd64, arm64) on Ubuntu,
+# then creates the GitHub release with RPMs, SRPMs, .deb,
 # source tarball (with vendor/) and SHA256SUMS. The tag must match the
 # Version in packaging/rpm/postfix-report.spec and the man page.
 name: release
@@ -58,8 +59,34 @@ jobs:
           path: dist/postfix-report-*.tar.gz
           if-no-files-found: error
 
+  deb:
+    name: DEB ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Check tag and versions
+        run: make release-check TAG="$GITHUB_REF_NAME"
+
+      - name: Build .deb
+        run: make deb DEB_ARCH=${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deb-${{ matrix.arch }}
+          path: dist/*.deb
+          if-no-files-found: error
+
   release:
-    needs: rpm
+    needs: [rpm, deb]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -88,6 +115,12 @@ jobs:
           dnf install ./postfix-report-${version}-1.el8.x86_64.rpm    # EL8
           dnf install ./postfix-report-${version}-1.el9.x86_64.rpm    # EL9
           dnf install ./postfix-report-${version}-1.el10.x86_64.rpm   # EL10
+          \`\`\`
+
+          Pacchetti per Debian e Ubuntu (amd64, arm64; log predefiniti \`/var/log/mail.log*\`):
+
+          \`\`\`
+          apt install ./postfix-report_${version}-1_amd64.deb
           \`\`\`
 
           Dopo l'installazione: permessi di lettura dei log, \`postfix-report check-config\`

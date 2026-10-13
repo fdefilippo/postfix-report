@@ -165,6 +165,11 @@ Il servizio deve poter leggere i log: su Enterprise Linux
 e va reso leggibile all'utente
 .B postfix-report
 con un gruppo assegnato da rsyslog o con un'ACL.
+Su Debian e Ubuntu il pacchetto usa
+.I /var/log/mail.log
+.RB ( root:adm " " 0640 ),
+già leggibile dal servizio tramite il gruppo
+.BR adm .
 Le definizioni delle metriche sono in
 .IR METRICS.md ,
 i limiti noti in

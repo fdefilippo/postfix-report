@@ -1,0 +1,9 @@
+#!/bin/sh
+# Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -e
+
+if [ "$1" = "remove" ] && [ -d /run/systemd/system ] && command -v deb-systemd-invoke >/dev/null 2>&1; then
+	deb-systemd-invoke stop postfix-report.timer postfix-report.service >/dev/null || true
+fi
+exit 0

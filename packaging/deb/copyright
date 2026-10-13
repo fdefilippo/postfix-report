@@ -1,0 +1,33 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: postfix-report
+Upstream-Contact: Francesco Defilippo <francesco@defilippo.org>
+Source: https://github.com/fdefilippo/postfix-report
+
+Files: *
+Copyright: 2026 Francesco Defilippo <francesco@defilippo.org>
+License: GPL-3.0+
+
+Files: vendor/*
+Copyright: the respective authors (see the LICENSE file of each module)
+License: BSD-3-clause and MIT and Apache-2.0
+ The binary is statically linked with the Go standard library and these
+ modules: modernc.org/sqlite, modernc.org/libc, modernc.org/mathutil,
+ modernc.org/memory, github.com/google/uuid, github.com/remyoudompheng/bigfft,
+ golang.org/x/sys (BSD-3-clause); github.com/dustin/go-humanize (MIT);
+ gopkg.in/yaml.v3 (MIT and Apache-2.0). Their license texts are under
+ vendor/ in the source tarball attached to each release. On Debian systems
+ the Apache License 2.0 is in "/usr/share/common-licenses/Apache-2.0".
+
+License: GPL-3.0+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in "/usr/share/common-licenses/GPL-3".

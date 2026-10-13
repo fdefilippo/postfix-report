@@ -1,0 +1,23 @@
+#!/bin/sh
+# Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -e
+
+if [ -d /run/systemd/system ]; then
+	systemctl --system daemon-reload >/dev/null || true
+fi
+if command -v deb-systemd-helper >/dev/null 2>&1; then
+	if [ "$1" = "remove" ]; then
+		deb-systemd-helper mask postfix-report.timer >/dev/null || true
+	fi
+	if [ "$1" = "purge" ]; then
+		deb-systemd-helper purge postfix-report.timer >/dev/null || true
+		deb-systemd-helper unmask postfix-report.timer >/dev/null || true
+	fi
+fi
+if [ "$1" = "purge" ]; then
+	# The history and the published reports are data, not configuration:
+	# they are kept, as is the system user.
+	echo "postfix-report: /var/lib/postfix-report (database) and /var/www/html/postfix-report (reports) were not removed" >&2
+fi
+exit 0
