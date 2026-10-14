@@ -192,12 +192,12 @@ func TestNav(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{
-		"index.html":            "index.html Panoramica*|daily/2026-01-18.html Ultimo giorno|weekly/2026-W03.html Ultima settimana|monthly/2026-01.html Ultimo mese|yearly/2026.html Ultimo anno",
-		"daily/2025-12-20.html": "../index.html Panoramica|../daily/2025-12-20.html Giorno*|../weekly/2025-W51.html Settimana|../monthly/2025-12.html Mese|../yearly/2025.html Anno",
-		"weekly/2026-W01.html":  "../index.html Panoramica|../daily/2026-01-04.html Giorno|../weekly/2026-W01.html Settimana*|../monthly/2025-12.html Mese|../yearly/2025.html Anno",
-		"monthly/2025-12.html":  "../index.html Panoramica|../daily/2025-12-31.html Giorno|../weekly/2026-W01.html Settimana|../monthly/2025-12.html Mese*|../yearly/2025.html Anno",
-		"monthly/2026-01.html":  "../index.html Panoramica|../daily/2026-01-18.html Giorno|../weekly/2026-W03.html Settimana|../monthly/2026-01.html Mese*|../yearly/2026.html Anno",
-		"yearly/2026.html":      "../index.html Panoramica|../daily/2026-01-18.html Giorno|../weekly/2026-W03.html Settimana|../monthly/2026-01.html Mese|../yearly/2026.html Anno*",
+		"index.html":            "index.html Panoramica*|daily/2026-01-18.html Giornaliero|weekly/2026-W03.html Settimanale|monthly/2026-01.html Mensile|yearly/2026.html Annuale",
+		"daily/2025-12-20.html": "../index.html Panoramica|../daily/2025-12-20.html Giornaliero*|../weekly/2025-W51.html Settimanale|../monthly/2025-12.html Mensile|../yearly/2025.html Annuale",
+		"weekly/2026-W01.html":  "../index.html Panoramica|../daily/2026-01-04.html Giornaliero|../weekly/2026-W01.html Settimanale*|../monthly/2025-12.html Mensile|../yearly/2025.html Annuale",
+		"monthly/2025-12.html":  "../index.html Panoramica|../daily/2025-12-31.html Giornaliero|../weekly/2026-W01.html Settimanale|../monthly/2025-12.html Mensile*|../yearly/2025.html Annuale",
+		"monthly/2026-01.html":  "../index.html Panoramica|../daily/2026-01-18.html Giornaliero|../weekly/2026-W03.html Settimanale|../monthly/2026-01.html Mensile*|../yearly/2026.html Annuale",
+		"yearly/2026.html":      "../index.html Panoramica|../daily/2026-01-18.html Giornaliero|../weekly/2026-W03.html Settimanale|../monthly/2026-01.html Mensile|../yearly/2026.html Annuale*",
 	}
 	navRe := regexp.MustCompile(`(?s)<nav aria-label="Navigazione principale">(.*?)</nav>`)
 	linkRe := regexp.MustCompile(`<a href="([^"]+)"( class="active")?[^>]*>([^<]+)</a>`)

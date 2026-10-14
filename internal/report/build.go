@@ -75,10 +75,7 @@ func (g *Generator) nav(root string, active string, p period.Period) []NavItem {
 	if !g.hasData {
 		return items
 	}
-	names := map[period.Kind]string{period.Day: "Ultimo giorno", period.Week: "Ultima settimana", period.Month: "Ultimo mese", period.Year: "Ultimo anno"}
-	if active != "index" {
-		names = map[period.Kind]string{period.Day: "Giorno", period.Week: "Settimana", period.Month: "Mese", period.Year: "Anno"}
-	}
+	names := map[period.Kind]string{period.Day: "Giornaliero", period.Week: "Settimanale", period.Month: "Mensile", period.Year: "Annuale"}
 	last := p.End.Add(-time.Second)
 	if g.lastDay.Start.Before(last) {
 		last = g.lastDay.Start

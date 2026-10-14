@@ -9,7 +9,7 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.1.4
+Version:        0.1.5
 Release:        1%{?dist}
 Summary:        Statistiche Postfix con storico SQLite e report HTML statici
 
@@ -116,6 +116,9 @@ exit 0
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Wed Oct 14 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1.5-1
+- Navigazione: voci Giornaliero, Settimanale, Mensile, Annuale.
+
 * Wed Oct 14 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1.4-1
 - Report: barra di navigazione sempre visibile, titolo mostrato una volta,
   tutti i periodi sempre elencati nella navigazione.
