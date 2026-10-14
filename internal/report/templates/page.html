@@ -11,7 +11,7 @@
 </head>
 <body>
 <header class="topbar">
-  <a class="brand" href="{{.Root}}index.html">{{.SiteTitle}}<small>postfix-report</small></a>
+  <a class="brand" href="{{.Root}}index.html">{{.SiteTitle}}</a>
   <nav aria-label="Navigazione principale">
     {{- range .Nav}}<a href="{{.Href}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Text}}</a>{{end -}}
   </nav>

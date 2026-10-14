@@ -442,7 +442,7 @@ func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 // ---- index ----
 
 func (g *Generator) indexPage() (*Page, error) {
-	pg := g.basePage("", "Panoramica", "index", g.lastDay.Start)
+	pg := g.basePage("", "Panoramica", "index", g.lastDay)
 	// Only the index shows the end of the data: period pages must not change
 	// when unrelated data arrives.
 	pg.DataAsOf = g.dataAsOf

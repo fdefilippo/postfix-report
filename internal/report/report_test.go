@@ -182,6 +182,76 @@ func TestTabs(t *testing.T) {
 	}
 }
 
+// TestNav checks the top bar: the site title appears once, and every page
+// lists every period kind, so that choosing a period never hides the others.
+// Finer kinds point to the latest of them inside the page (its last day
+// with data), coarser kinds to the periods containing it.
+func TestNav(t *testing.T) {
+	env, _, g := fixture(t)
+	if _, err := g.GenerateAll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"index.html":            "index.html Panoramica*|daily/2026-01-18.html Ultimo giorno|weekly/2026-W03.html Ultima settimana|monthly/2026-01.html Ultimo mese|yearly/2026.html Ultimo anno",
+		"daily/2025-12-20.html": "../index.html Panoramica|../daily/2025-12-20.html Giorno*|../weekly/2025-W51.html Settimana|../monthly/2025-12.html Mese|../yearly/2025.html Anno",
+		"weekly/2026-W01.html":  "../index.html Panoramica|../daily/2026-01-04.html Giorno|../weekly/2026-W01.html Settimana*|../monthly/2025-12.html Mese|../yearly/2025.html Anno",
+		"monthly/2025-12.html":  "../index.html Panoramica|../daily/2025-12-31.html Giorno|../weekly/2026-W01.html Settimana|../monthly/2025-12.html Mese*|../yearly/2025.html Anno",
+		"monthly/2026-01.html":  "../index.html Panoramica|../daily/2026-01-18.html Giorno|../weekly/2026-W03.html Settimana|../monthly/2026-01.html Mese*|../yearly/2026.html Anno",
+		"yearly/2026.html":      "../index.html Panoramica|../daily/2026-01-18.html Giorno|../weekly/2026-W03.html Settimana|../monthly/2026-01.html Mese|../yearly/2026.html Anno*",
+	}
+	navRe := regexp.MustCompile(`(?s)<nav aria-label="Navigazione principale">(.*?)</nav>`)
+	linkRe := regexp.MustCompile(`<a href="([^"]+)"( class="active")?[^>]*>([^<]+)</a>`)
+	for p, w := range want {
+		body := read(t, env, p)
+		m := navRe.FindStringSubmatch(body)
+		if m == nil {
+			t.Errorf("%s: no top bar", p)
+			continue
+		}
+		var got []string
+		for _, l := range linkRe.FindAllStringSubmatch(m[1], -1) {
+			s := l[1] + " " + l[3]
+			if l[2] != "" {
+				s += "*"
+			}
+			got = append(got, s)
+		}
+		if strings.Join(got, "|") != w {
+			t.Errorf("%s: nav\n got %s\nwant %s", p, strings.Join(got, "|"), w)
+		}
+		if n := strings.Count(body, env.Cfg.Output.Title+"</a>"); n != 1 || strings.Contains(body, "<small>postfix-report</small>") {
+			t.Errorf("%s: site title shown %d times in the top bar", p, n)
+		}
+	}
+}
+
+// TestWeekendShading checks that the charts over days mark Saturdays and
+// Sundays, and that charts over hours or months do not.
+func TestWeekendShading(t *testing.T) {
+	env, _, g := fixture(t)
+	if _, err := g.GenerateAll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	re := regexp.MustCompile(`"weekend":\[[^\]]*\]`)
+	week := `"weekend":[false,false,false,false,false,true,true]`
+	for p, want := range map[string]int{"weekly/2026-W01.html": 2, "daily/2026-01-10.html": 0, "yearly/2026.html": 0} {
+		got := re.FindAllString(read(t, env, p), -1)
+		if len(got) != want {
+			t.Errorf("%s: %d charts with weekends, want %d", p, len(got), want)
+		}
+		for _, w := range got {
+			if w != week {
+				t.Errorf("%s: %s, want %s", p, w, week)
+			}
+		}
+	}
+	// December 2025 starts on a Monday: weekends on the 6th-7th, 13th-14th...
+	m := re.FindString(read(t, env, "monthly/2025-12.html"))
+	if !strings.HasPrefix(m, `"weekend":[false,false,false,false,false,true,true,false`) || strings.Count(m, "true") != 8 {
+		t.Errorf("monthly/2025-12: %s", m)
+	}
+}
+
 func TestMissingAndPartialPeriods(t *testing.T) {
 	env, _, g := fixture(t)
 	if _, err := g.GenerateAll(ctx); err != nil {

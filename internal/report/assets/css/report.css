@@ -20,7 +20,7 @@
   --mono: ui-monospace, "SFMono-Regular", "DejaVu Sans Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 64px; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
   font: 14px/1.45 var(--font);
@@ -32,9 +32,9 @@ a:hover { text-decoration: underline; }
 .topbar {
   background: #16212e; color: #e8eef5; display: flex; flex-wrap: wrap; align-items: center;
   gap: 4px 18px; padding: 10px 20px;
+  position: sticky; top: 0; z-index: 20; box-shadow: 0 1px 4px rgba(0,0,0,.18);
 }
 .topbar .brand { color: #fff; font-weight: 650; font-size: 15px; letter-spacing: .2px; }
-.topbar .brand small { color: #9fb2c7; font-weight: 400; margin-left: 6px; }
 .topbar nav { display: flex; flex-wrap: wrap; gap: 4px; }
 .topbar nav a {
   color: #c9d6e3; padding: 4px 10px; border-radius: 6px; font-size: 13px;
@@ -80,7 +80,7 @@ h1 { font-size: 22px; margin: 0; font-weight: 650; }
 /* tabs: without JavaScript the tab bar stays hidden and every panel shows */
 .tabs { margin-top: 18px; }
 .tablist {
-  display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--line); position: relative;
 }
 .tablist[hidden] { display: none; }
 .tablist [role="tab"] {
@@ -131,6 +131,7 @@ h1 { font-size: 22px; margin: 0; font-weight: 650; }
 .chart .hit:hover, .chart .hit:focus { fill: rgba(31, 95, 174, .07); }
 .chart .missing { fill: #eef0f3; stroke: none; }
 .chart .partial { fill: #fbf4e3; }
+.chart .weekend { fill: #e7eef8; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
 .legend-item {
   font: inherit; font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 14px;
@@ -139,6 +140,7 @@ h1 { font-size: 22px; margin: 0; font-weight: 650; }
 .legend-item.off { opacity: .45; text-decoration: line-through; }
 .legend-note { font-size: 12px; color: var(--muted); align-self: center; }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.swatch.weekend { background: #e7eef8; border: 1px solid #cdd9ea; }
 .swatch.hatch { background: repeating-linear-gradient(45deg, #d5dae1 0 3px, #eef0f3 3px 6px); }
 .nojs-note { color: var(--muted); font-size: 12px; }
 html.js .nojs-note { display: none; }
@@ -200,10 +202,13 @@ footer .copyright { margin-top: 10px; padding-top: 8px; border-top: 1px solid va
   .kpi .value { font-size: 18px; }
   h1 { font-size: 19px; }
   .topbar { padding: 8px 12px; }
+  .topbar nav { gap: 2px; }
+  .topbar nav a { padding: 4px 7px; }
   .tablist { flex-wrap: nowrap; overflow-x: auto; }
 }
 
 @media print {
+  html { scroll-padding-top: 0; }
   body { background: #fff; font-size: 11px; }
   .topbar, .pager, .legend, .filter, footer .noprint, details.data summary { display: none !important; }
   main { max-width: none; padding: 0; }

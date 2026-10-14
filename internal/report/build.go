@@ -65,9 +65,12 @@ func (g *Generator) link(root string, p period.Period, text string) *Link {
 }
 
 // nav builds the top bar. On the index it points to the latest periods; on a
-// period page it points to the periods containing that page, so that pages
-// which are not regenerated never carry stale "latest" links.
-func (g *Generator) nav(root string, active string, at time.Time) []NavItem {
+// period page every kind stays listed: the page itself and the coarser periods
+// containing it, and for the finer kinds the latest of them inside the page
+// (its last day with data). Links therefore depend only on the page's own
+// period and the data range, so pages which are not regenerated never carry
+// stale "latest" links.
+func (g *Generator) nav(root string, active string, p period.Period) []NavItem {
 	items := []NavItem{{Href: root + "index.html", Text: "Panoramica", Active: active == "index"}}
 	if !g.hasData {
 		return items
@@ -76,16 +79,20 @@ func (g *Generator) nav(root string, active string, at time.Time) []NavItem {
 	if active != "index" {
 		names = map[period.Kind]string{period.Day: "Giorno", period.Week: "Settimana", period.Month: "Mese", period.Year: "Anno"}
 	}
+	last := p.End.Add(-time.Second)
+	if g.lastDay.Start.Before(last) {
+		last = g.lastDay.Start
+	}
 	for _, k := range period.Kinds {
 		if !g.enabled(k) {
 			continue
 		}
-		// A period page links to itself and to the coarser periods containing it.
-		if active != "index" && indexOf(string(k)) < indexOf(active) {
-			continue
+		at := p.Start
+		if active == "index" || indexOf(string(k)) < indexOf(active) {
+			at = last
 		}
-		p := period.Of(k, at, g.loc())
-		if h := g.href(root, p); h != "" {
+		q := period.Of(k, at, g.loc())
+		if h := g.href(root, q); h != "" {
 			items = append(items, NavItem{Href: h, Text: names[k], Active: active == string(k)})
 		}
 	}
@@ -101,9 +108,9 @@ func indexOf(kind string) int {
 	return 0
 }
 
-func (g *Generator) basePage(root, title, active string, at time.Time) *Page {
+func (g *Generator) basePage(root, title, active string, p period.Period) *Page {
 	return &Page{
-		Root: root, SiteTitle: g.Cfg.Output.Title, Title: title, Nav: g.nav(root, active, at),
+		Root: root, SiteTitle: g.Cfg.Output.Title, Title: title, Nav: g.nav(root, active, p),
 		Generated: generatedPlaceholder, Version: g.Version, Privacy: g.privacyNote(),
 	}
 }
@@ -276,10 +283,32 @@ var trafficSeries = []seriesDef{
 	{"Rifiuti SMTP", ag.MRejects, colRejected},
 }
 
+// weekends marks the Saturdays and Sundays of a chart over days, so that the
+// chart can tell them apart from working days; nil for any other bucket
+// size (hours, months) or when no bucket falls on a weekend.
+func (g *Generator) weekends(buckets []query.Bucket) []bool {
+	var out []bool
+	found := false
+	for _, b := range buckets {
+		// A local day lasts 23 to 25 hours across DST changes.
+		if d := b.End - b.Start; d < 23*3600 || d > 25*3600 {
+			return nil
+		}
+		w := time.Unix(b.Start, 0).In(g.loc()).Weekday()
+		we := w == time.Saturday || w == time.Sunday
+		found = found || we
+		out = append(out, we)
+	}
+	if !found {
+		return nil
+	}
+	return out
+}
+
 // bucketChart builds a chart over buckets; values of buckets without data are null.
 func (g *Generator) bucketChart(id, title, typ, unit string, buckets []query.Bucket, labels, short []string,
 	links []string, values []query.Metrics, defs []seriesDef) Block {
-	spec := chartSpec{Type: typ, Title: title, Labels: labels, Short: short, Unit: unit}
+	spec := chartSpec{Type: typ, Title: title, Labels: labels, Short: short, Unit: unit, Weekend: g.weekends(buckets)}
 	for i, b := range buckets {
 		spec.Status = append(spec.Status, b.Status)
 		spec.Fraction = append(spec.Fraction, round3(b.Fraction))
@@ -682,7 +711,7 @@ func (g *Generator) periodPage(p period.Period) (*Page, error) {
 		return nil, err
 	}
 	root := "../"
-	pg := g.basePage(root, g.title(p), string(p.Kind), p.Start)
+	pg := g.basePage(root, g.title(p), string(p.Kind), p)
 	pg.Crumbs = g.crumbs(root, p)
 	pg.Prev = g.link(root, p.Prev(), g.shortTitle(p.Prev()))
 	pg.Next = g.link(root, p.Next(), g.shortTitle(p.Next()))

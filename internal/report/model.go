@@ -149,6 +149,7 @@ type chartSpec struct {
 	Stacked    bool         `json:"stacked,omitempty"`
 	Height     int          `json:"height,omitempty"`
 	HasMissing bool         `json:"hasMissing,omitempty"`
+	Weekend    []bool       `json:"weekend,omitempty"`
 	Series     []seriesSpec `json:"series"`
 }
 

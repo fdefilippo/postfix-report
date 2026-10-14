@@ -9,7 +9,7 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.1.3
+Version:        0.1.4
 Release:        1%{?dist}
 Summary:        Statistiche Postfix con storico SQLite e report HTML statici
 
@@ -116,6 +116,11 @@ exit 0
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Wed Oct 14 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1.4-1
+- Report: barra di navigazione sempre visibile, titolo mostrato una volta,
+  tutti i periodi sempre elencati nella navigazione.
+- Grafici per giorno: sabato e domenica con sfondo distinto.
+
 * Tue Oct 13 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1.3-1
 - EL8: unità systemd senza le direttive sconosciute a systemd 239
   (ProtectHostname, ProtectKernelLogs, ProtectClock, IPAddressDeny).
