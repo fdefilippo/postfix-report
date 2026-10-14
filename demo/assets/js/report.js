@@ -108,6 +108,12 @@
       });
       lg.appendChild(b);
     });
+    if (spec.weekend) {
+      var we = document.createElement("span");
+      we.className = "legend-note";
+      we.innerHTML = '<span class="swatch weekend"></span>sabato e domenica';
+      lg.appendChild(we);
+    }
     if (spec.hasMissing) {
       var m = document.createElement("span");
       m.className = "legend-note";
@@ -164,6 +170,9 @@
     for (var i = 0; i < n; i++) {
       var x0 = m.l + i * bw;
       var st = spec.status ? spec.status[i] : "complete";
+      if (spec.weekend && spec.weekend[i]) {
+        el("rect", { x: x0, y: m.t, width: bw, height: ph, class: "weekend" }, svg);
+      }
       if (st === "missing" || st === "nonexistent") {
         el("rect", { x: x0 + 1, y: m.t, width: Math.max(bw - 2, 1), height: ph, class: "missing" }, svg);
       } else if (st === "partial") {
@@ -332,6 +341,10 @@
         Array.prototype.forEach.call(panel(t).querySelectorAll("[data-chart]"), function (c) {
           if (c.chart) c.chart.draw();
         });
+        // On narrow screens the tab bar scrolls sideways: keep the selected tab in sight.
+        if (t.offsetLeft < list.scrollLeft || t.offsetLeft + t.offsetWidth > list.scrollLeft + list.clientWidth) {
+          list.scrollLeft = t.offsetLeft - (list.clientWidth - t.offsetWidth) / 2;
+        }
         if (focus) t.focus();
         if (remember) {
           var id = t.getAttribute("aria-controls");
@@ -382,8 +395,19 @@
     window.addEventListener("hashchange", function () { sets.forEach(function (f) { f(); }); });
   }
 
+  // The top bar stays fixed: fragments and the tab bar must scroll below it,
+  // whatever its height (it wraps on narrow screens).
+  function initTopbar() {
+    var bar = document.querySelector(".topbar");
+    if (!bar) return;
+    var fit = function () { document.documentElement.style.scrollPaddingTop = (bar.offsetHeight + 8) + "px"; };
+    fit();
+    window.addEventListener("resize", fit);
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     document.documentElement.classList.add("js");
+    initTopbar();
     initCharts();
     initTables();
     initTabs();
