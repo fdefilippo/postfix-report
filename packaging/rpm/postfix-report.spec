@@ -9,7 +9,7 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.1.5
+Version:        0.2
 Release:        1%{?dist}
 Summary:        Statistiche Postfix con storico SQLite e report HTML statici
 
@@ -104,7 +104,7 @@ exit 0
 
 %files
 %license LICENSE
-%doc README.md README.en.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md config.example.yaml
+%doc README.md README.it.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md config.example.yaml
 %doc examples
 %{_bindir}/%{name}
 %{_mandir}/man1/%{name}.1*
@@ -116,6 +116,13 @@ exit 0
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Sun Oct 25 2026 Francesco Defilippo <francesco@defilippo.org> - 0.2-1
+- Report anche in inglese (output.language: en); l'italiano resta predefinito.
+- README.md in inglese, versione italiana in README.it.md.
+- CSS e JS referenziati con l'hash del contenuto: dopo un aggiornamento il
+  browser non usa copie in cache.
+- Sfondo dei fine settimana più marcato nei grafici per giorno.
+
 * Wed Oct 14 2026 Francesco Defilippo <francesco@defilippo.org> - 0.1.5-1
 - Navigazione: voci Giornaliero, Settimanale, Mensile, Annuale.
 

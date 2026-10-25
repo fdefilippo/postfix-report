@@ -5,7 +5,10 @@
   "use strict";
 
   var NS = "http://www.w3.org/2000/svg";
-  var nf = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 2 });
+  // The page language (output.language) picks texts and number format.
+  var EN = document.documentElement.lang === "en";
+  function L(it, en) { return EN ? en : it; }
+  var nf = new Intl.NumberFormat(L("it-IT", "en-US"), { maximumFractionDigits: 2 });
 
   function el(name, attrs, parent) {
     var e = document.createElementNS(NS, name);
@@ -15,7 +18,7 @@
   }
 
   function fmt(v, unit) {
-    if (v === null || v === undefined) return "n/d";
+    if (v === null || v === undefined) return L("n/d", "n/a");
     if (unit === "bytes") return fmtBytes(v);
     if (unit === "s") return fmtSeconds(v);
     return nf.format(v);
@@ -31,7 +34,7 @@
     if (v < 60) return nf.format(Math.round(v * 100) / 100) + " s";
     if (v < 3600) return nf.format(Math.round(v / 6) / 10) + " min";
     if (v < 86400) return nf.format(Math.round(v / 360) / 10) + " h";
-    return nf.format(Math.round(v / 8640) / 10) + " g";
+    return nf.format(Math.round(v / 8640) / 10) + L(" g", " d");
   }
 
   function niceMax(v) {
@@ -43,10 +46,10 @@
   }
 
   var STATUS_TEXT = {
-    complete: "copertura completa",
-    partial: "copertura parziale",
-    missing: "dati assenti",
-    nonexistent: "ora inesistente (cambio ora legale)"
+    complete: L("copertura completa", "complete coverage"),
+    partial: L("copertura parziale", "partial coverage"),
+    missing: L("dati assenti", "no data"),
+    nonexistent: L("ora inesistente (cambio ora legale)", "nonexistent hour (DST change)")
   };
 
   /* ---------- tooltip ---------- */
@@ -99,7 +102,7 @@
       b.className = "legend-item";
       b.setAttribute("aria-pressed", "true");
       b.innerHTML = '<span class="swatch" style="background:' + esc(s.color) + '"></span>' + esc(s.name);
-      b.title = "Mostra/nascondi la serie";
+      b.title = L("Mostra/nascondi la serie", "Show/hide the series");
       b.addEventListener("click", function () {
         self.hidden[i] = !self.hidden[i];
         b.setAttribute("aria-pressed", self.hidden[i] ? "false" : "true");
@@ -111,13 +114,13 @@
     if (spec.weekend) {
       var we = document.createElement("span");
       we.className = "legend-note";
-      we.innerHTML = '<span class="swatch weekend"></span>sabato e domenica';
+      we.innerHTML = '<span class="swatch weekend"></span>' + L("sabato e domenica", "Saturday and Sunday");
       lg.appendChild(we);
     }
     if (spec.hasMissing) {
       var m = document.createElement("span");
       m.className = "legend-note";
-      m.innerHTML = '<span class="swatch hatch"></span>dati assenti';
+      m.innerHTML = '<span class="swatch hatch"></span>' + L("dati assenti", "no data");
       lg.appendChild(m);
     }
     this.c.parentNode.insertBefore(lg, this.c);
@@ -138,7 +141,7 @@
     var W = Math.max(c.clientWidth || 600, 280), H = spec.height || 260;
     var m = { l: 56, r: 12, t: 12, b: spec.labels.length > 16 ? 44 : 30 };
     var svg = el("svg", { width: W, height: H, viewBox: "0 0 " + W + " " + H, role: "img",
-      "aria-label": spec.title || "grafico" }, c);
+      "aria-label": spec.title || L("grafico", "chart") }, c);
     var vis = this.visible();
     var n = spec.labels.length;
     var maxV = 0;
@@ -232,7 +235,7 @@
             s += '<div><span class="swatch" style="background:' + esc(x.s.color) + '"></span>' + esc(x.s.name) +
               ": <b>" + fmt(x.s.values[idx], spec.unit) + "</b></div>";
           });
-          if (link) s += '<div class="tip-link">clic per aprire il report</div>';
+          if (link) s += '<div class="tip-link">' + L("clic per aprire il report", "click to open the report") + '</div>';
           return s;
         };
         r.addEventListener("mousemove", function (ev) { showTip(html(), ev.clientX, ev.clientY); });
@@ -259,7 +262,7 @@
       try {
         c.chart = new Chart(c, JSON.parse(src.textContent));
       } catch (e) {
-        c.textContent = "Grafico non disponibile: " + e.message;
+        c.textContent = L("Grafico non disponibile: ", "Chart not available: ") + e.message;
       }
     });
   }
@@ -305,7 +308,7 @@
           r.style.display = ok ? "" : "none";
           if (ok) shown++;
         });
-        if (count) count.textContent = q ? shown + " righe" : "";
+        if (count) count.textContent = q ? shown + L(" righe", " rows") : "";
       });
     });
   }

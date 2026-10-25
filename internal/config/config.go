@@ -63,6 +63,7 @@ type Config struct {
 	Output struct {
 		Directory string `yaml:"directory"`
 		Title     string `yaml:"title"`
+		Language  string `yaml:"language"` // "it" (default) or "en"
 	} `yaml:"output"`
 	Reports struct {
 		Daily    bool `yaml:"daily"`
@@ -96,6 +97,7 @@ func Default() *Config {
 	c.Coverage.GapThreshold = Duration{60 * time.Minute}
 	c.Output.Directory = "/var/www/html/postfix-report"
 	c.Output.Title = "Postfix report"
+	c.Output.Language = "it"
 	c.Reports.Daily, c.Reports.Weekly, c.Reports.Monthly, c.Reports.Yearly = true, true, true, true
 	c.Reports.TopLimit = 20
 	c.Logging.Level = "info"
@@ -157,6 +159,11 @@ func (c *Config) Finish() error {
 	}
 	if c.Output.Directory == "" {
 		add("output.directory: required")
+	}
+	switch c.Output.Language {
+	case "it", "en":
+	default:
+		add("output.language: must be it or en")
 	}
 	if c.Reports.TopLimit < 1 || c.Reports.TopLimit > 500 {
 		add("reports.top_limit: must be between 1 and 500")

@@ -1,6 +1,6 @@
 .\" Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
 .\" SPDX-License-Identifier: GPL-3.0-or-later
-.TH POSTFIX-REPORT 1 "ottobre 2026" "postfix-report 0.1.5" "Comandi utente"
+.TH POSTFIX-REPORT 1 "ottobre 2026" "postfix-report 0.2" "Comandi utente"
 .SH NOME
 postfix-report \- statistiche di Postfix con storico SQLite e report HTML statici
 .SH SINTASSI
@@ -83,8 +83,11 @@ Trasporti del content filter e UID con cui il filtro reinietta i messaggi.
 Distanza oltre la quale due righe consecutive delimitano un buco di copertura
 (default 60m).
 .TP
-.B output.directory\fR, \fBoutput.title
-Directory pubblicata dal web server e titolo dei report.
+.B output.directory\fR, \fBoutput.title\fR, \fBoutput.language
+Directory pubblicata dal web server, titolo e lingua dei report
+.RB ( it ,
+predefinita, oppure
+.BR en ).
 .TP
 .B reports.daily\fR, \fBweekly\fR, \fBmonthly\fR, \fByearly\fR, \fBtop_limit
 Report da generare e righe per classifica.

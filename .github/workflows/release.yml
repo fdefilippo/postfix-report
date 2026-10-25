@@ -109,7 +109,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           cat > notes.md <<EOF
-          Pacchetti per Enterprise Linux (RHEL, AlmaLinux, Rocky, Oracle Linux):
+          Packages for Enterprise Linux (RHEL, AlmaLinux, Rocky, Oracle Linux):
 
           \`\`\`
           dnf install ./postfix-report-${version}-1.el8.x86_64.rpm    # EL8
@@ -117,15 +117,16 @@ jobs:
           dnf install ./postfix-report-${version}-1.el10.x86_64.rpm   # EL10
           \`\`\`
 
-          Pacchetti per Debian e Ubuntu (amd64, arm64; log predefiniti \`/var/log/mail.log*\`):
+          Packages for Debian and Ubuntu (amd64, arm64; default logs \`/var/log/mail.log*\`):
 
           \`\`\`
           apt install ./postfix-report_${version}-1_amd64.deb
           \`\`\`
 
-          Dopo l'installazione: permessi di lettura dei log, \`postfix-report check-config\`
-          e \`systemctl enable --now postfix-report.timer\` (vedi README e \`man postfix-report\`).
-          Il tarball dei sorgenti include \`vendor/\`: \`rpmbuild -ta\` non richiede la rete.
+          After installing: grant read access to the logs, run \`postfix-report check-config\`
+          and \`systemctl enable --now postfix-report.timer\` (see the README and \`man postfix-report\`).
+          Set \`output.language: en\` for English reports. The source tarball includes
+          \`vendor/\`: \`rpmbuild -ta\` needs no network access.
           EOF
           gh release create "$GITHUB_REF_NAME" release/* \
             --repo "$GITHUB_REPOSITORY" \

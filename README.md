@@ -1,123 +1,131 @@
 # postfix-report
 
-[English](README.en.md) · **Italiano**
+**English** · [Italiano](README.it.md)
 
-Analisi dei log di Postfix con storico in SQLite e **report HTML statici**
-(giornalieri, settimanali ISO 8601, mensili, annuali), aggiornati in modo
-incrementale da un timer systemd. Non servono servizi esterni, Internet o
-server applicativi: i report si consultano da qualunque web server statico
-oppure direttamente via `file://`.
+Postfix log analysis with a SQLite history and **static HTML reports**
+(daily, ISO 8601 weekly, monthly, yearly), updated incrementally by a systemd
+timer. No external services, Internet access or application servers are
+needed: the reports can be served by any static web server or opened directly
+via `file://`.
 
-* **Statistiche verificabili**: messaggi, destinatari, tentativi, consegne,
-  differimenti, fallimenti definitivi, rifiuti SMTP, bounce, volumi, ritardi
-  con percentili esatti, TLS e SASL. Le definizioni sono in [METRICS.md](METRICS.md),
-  il confronto con conteggi indipendenti sul log reale in [VALIDATION.md](VALIDATION.md).
-* **Correlazione corretta**: Queue ID riutilizzati, messaggi su più giorni e su
-  più file, destinatari multipli contati una volta, differimenti seguiti da
-  successo, reiniezione dei content filter riconosciuta (un messaggio filtrato
-  non diventa due messaggi).
-* **Dati mancanti ≠ zero**: ogni ora, giorno e periodo riporta la propria
-  copertura. Le ore senza log sono mostrate come assenti, non come traffico zero.
-* **Import idempotente**: le sorgenti sono riconosciute dal contenuto. Rotazione,
-  file `.gz`, riletture, sovrapposizioni e interruzioni non duplicano i dati.
-* **Rigenerazione selettiva**: si riscrivono solo le pagine i cui dati sono
-  cambiati, con sostituzione atomica dei file.
-* **Pagine a schede**: gli indicatori del periodo restano in alto; il resto è
-  diviso in schede (traffico, confronto, tempi di consegna, mittenti e
-  destinatari, rifiuti ed errori, sicurezza, copertura). La scheda scelta resta
-  attiva passando a un altro report ed è indicata nell'URL (`#rifiuti-ed-errori`).
-  Senza JavaScript e in stampa le sezioni compaiono tutte, una sotto l'altra.
+* **Verifiable statistics**: messages, recipients, attempts, deliveries,
+  deferrals, permanent failures, SMTP rejections, bounces, volumes, delays
+  with exact percentiles, TLS and SASL. The definitions are in
+  [METRICS.md](METRICS.md), the comparison with independent counts on the real
+  log in [VALIDATION.md](VALIDATION.md).
+* **Correct correlation**: reused Queue IDs, messages spanning several days
+  and files, multiple recipients counted once, deferrals followed by success,
+  content-filter reinjection recognized (a filtered message does not become
+  two messages).
+* **Missing data ≠ zero**: every hour, day and period reports its own
+  coverage. Hours without logs are shown as missing, not as zero traffic.
+* **Idempotent import**: sources are recognized by their content. Rotation,
+  `.gz` files, re-reads, overlaps and interruptions never duplicate data.
+* **Selective regeneration**: only the pages whose data changed are rewritten,
+  with atomic file replacement.
+* **Tabbed pages**: the period's indicators stay at the top; the rest is split
+  into tabs (traffic, comparison, delivery times, senders and recipients,
+  rejections and errors, security, coverage). The selected tab stays active
+  when moving to another report and is reflected in the URL
+  (`#rejections-and-errors`). Without JavaScript and when printing, all
+  sections are shown one after the other.
+* **Italian or English reports**: `output.language: en` generates the pages in
+  English (dates, numbers and texts); Italian is the default.
 
-![Report giornaliero, scheda Traffico (dati sintetici)](docs/screenshots/giornaliero.png)
+The messages of the program and the other documents (METRICS.md,
+VALIDATION.md, LOG_ANALYSIS.md, LIMITATIONS.md, the man page) are in Italian.
+
+![Daily report, Traffic tab (synthetic data)](docs/screenshots/daily-en.png)
 
 <details>
-<summary>Altre schermate (dati sintetici)</summary>
+<summary>More screenshots (synthetic data)</summary>
 
-![Report mensile, scheda Rifiuti ed errori](docs/screenshots/mensile-rifiuti.png)
+![Monthly report, Rejections and errors tab](docs/screenshots/monthly-rejections-en.png)
 
-![Panoramica con l'archivio](docs/screenshots/panoramica-archivio.png)
+![Overview with the archive](docs/screenshots/overview-archive-en.png)
 
 </details>
 
-Analisi dei formati osservati: [LOG_ANALYSIS.md](LOG_ANALYSIS.md) · Limiti noti:
-[LIMITATIONS.md](LIMITATIONS.md) · Report dimostrativi (dati sintetici):
+Observed log formats: [LOG_ANALYSIS.md](LOG_ANALYSIS.md) · Known limitations:
+[LIMITATIONS.md](LIMITATIONS.md) · Demo reports (synthetic data, in Italian):
 [`demo/index.html`](demo/index.html).
 
-## Architettura
+## Architecture
 
 ```text
-maillog(.gz) ─► parser streaming ─► eventi normalizzati ─► correlazione Queue ID
-                (internal/logparse)  (internal/ingest)      (internal/correlate)
+maillog(.gz) ─► streaming parser ─► normalized events ─► Queue ID correlation
+                (internal/logparse)  (internal/ingest)    (internal/correlate)
                                                                    │
-  report HTML ◄── generatore ◄── interrogazioni ◄── aggregati ◄── SQLite
+  HTML reports ◄── generator ◄── queries ◄── aggregates ◄── SQLite
   (output/)      (internal/report) (internal/query) (internal/aggregate) (internal/store)
 ```
 
-| Package | Responsabilità |
+| Package | Responsibility |
 |---|---|
-| `internal/logparse` | Parsing sintattico delle righe syslog/Postfix, anno e ora legale |
-| `internal/ingest` | Sorgenti (fingerprint), checkpoint, gzip, deduplicazione, copertura |
-| `internal/correlate` | Istanze di coda, destinatari, tentativi, reiniezioni, rifiuti |
-| `internal/aggregate` | Metriche orarie e classifiche giornaliere, ricalcolabili |
-| `internal/query` | Totali, serie, copertura, percentili esatti |
-| `internal/report` | Pagine HTML, asset CSS/JS locali, scrittura atomica |
-| `internal/verify` | Integrità DB, invarianti, aggregati, link dei report |
-| `internal/app` | Orchestrazione, lock, invalidazione delle pagine |
+| `internal/logparse` | Syntactic parsing of syslog/Postfix lines, year and DST |
+| `internal/ingest` | Sources (fingerprint), checkpoints, gzip, deduplication, coverage |
+| `internal/correlate` | Queue instances, recipients, attempts, reinjections, rejections |
+| `internal/aggregate` | Hourly metrics and daily rankings, recomputable |
+| `internal/query` | Totals, series, coverage, exact percentiles |
+| `internal/report` | HTML pages, local CSS/JS assets, atomic writes |
+| `internal/verify` | DB integrity, invariants, aggregates, report links |
+| `internal/app` | Orchestration, locking, page invalidation |
 
-Il database è la fonte dei report: i log possono essere ruotati via senza
-perdere lo storico. Lo schema è versionato (`internal/store/migrations`).
+The database is the source of the reports: logs can be rotated away without
+losing the history. The schema is versioned (`internal/store/migrations`).
 
-## Compilazione
+## Building
 
-Serve Go 1.25 o successivo. Il binario è statico (senza cgo, con il driver
-SQLite in Go puro): si compila ovunque e gira su qualsiasi Linux della stessa
-architettura, Enterprise Linux 8/9/10 compresi.
+Go 1.25 or later is required. The binary is static (no cgo, pure-Go SQLite
+driver): it builds anywhere and runs on any Linux of the same architecture,
+Enterprise Linux 8/9/10 included.
 
 ```bash
 make build        # bin/postfix-report
-make check        # gofmt, go vet, test
-make bench        # benchmark del parser e della pipeline
+make check        # gofmt, go vet, tests
+make bench        # parser and pipeline benchmarks
 ```
 
-## Installazione con RPM (Enterprise Linux 8/9/10)
+## Installing the RPM (Enterprise Linux 8/9/10)
 
-Gli RPM già compilati per EL8, EL9 ed EL10 sono allegati alle
-[release su GitHub](https://github.com/fdefilippo/postfix-report/releases),
-con SRPM, sorgenti e `SHA256SUMS`. Per compilarli in proprio, su una
-macchina EL con `golang` (≥ 1.25) e `rpm-build` installati:
+Prebuilt RPMs for EL8, EL9 and EL10 are attached to the
+[GitHub releases](https://github.com/fdefilippo/postfix-report/releases),
+together with SRPMs, sources and `SHA256SUMS`. To build them yourself, on an
+EL machine with `golang` (≥ 1.25) and `rpm-build` installed:
 
 ```bash
 sudo dnf install golang rpm-build systemd-rpm-macros git make
-make rpm          # dist/rpmbuild/RPMS/x86_64/postfix-report-<versione>-1.el9.x86_64.rpm
+make rpm          # dist/rpmbuild/RPMS/x86_64/postfix-report-<version>-1.el9.x86_64.rpm
 sudo dnf install dist/rpmbuild/RPMS/x86_64/postfix-report-*.rpm
 ```
 
-`make rpm` crea prima `dist/postfix-report-<versione>.tar.gz` (sorgenti più
-`vendor/`, quindi `rpmbuild` non usa la rete) e poi lancia `rpmbuild -ba`.
-`make srpm` produce solo l'SRPM, utile con `mock`. La versione è quella
-indicata nello spec (`packaging/rpm/postfix-report.spec`). Il binario è
-statico: un RPM compilato su EL9 si installa anche su EL10.
+`make rpm` first creates `dist/postfix-report-<version>.tar.gz` (sources plus
+`vendor/`, so `rpmbuild` needs no network) and then runs `rpmbuild -ba`.
+`make srpm` only produces the SRPM, useful with `mock`. The version is the one
+in the spec file (`packaging/rpm/postfix-report.spec`). The binary is static:
+an RPM built on EL9 also installs on EL10.
 
-Per pubblicare una release si aggiornano `Version` e `%changelog` nello spec
-e la versione in `docs/postfix-report.1`, poi si crea e si invia il tag
-(`git tag -a v0.2 && git push origin v0.2`). Il workflow
-`.github/workflows/release.yml` controlla le versioni (`make release-check`),
-compila gli RPM e i `.deb` e crea la release. Parte solo sui tag.
+To publish a release, update `Version` and `%changelog` in the spec and the
+version in `docs/postfix-report.1`, then create and push the tag
+(`git tag -a v0.2 && git push origin v0.2`). The workflow
+`.github/workflows/release.yml` checks the versions (`make release-check`),
+builds the RPMs and the `.deb` packages and creates the release. It runs only
+on tags.
 
-Il pacchetto installa:
+The package installs:
 
-| Percorso | Contenuto |
+| Path | Content |
 |---|---|
-| `/usr/bin/postfix-report` | binario |
-| `/etc/postfix-report/config.yaml` | configurazione (`root:postfix-report 0640`, non sovrascritta negli aggiornamenti) |
-| `/usr/lib/systemd/system/postfix-report.{service,timer}` | unità systemd (timer non abilitato) |
+| `/usr/bin/postfix-report` | binary |
+| `/etc/postfix-report/config.yaml` | configuration (`root:postfix-report 0640`, not overwritten on upgrades) |
+| `/usr/lib/systemd/system/postfix-report.{service,timer}` | systemd units (timer not enabled) |
 | `/var/lib/postfix-report/` | database (`0750`) |
-| `/var/www/html/postfix-report/` | report HTML (`0755`) |
-| `/usr/share/doc/postfix-report/examples/` | configurazioni di esempio per Apache, Nginx e cron |
+| `/var/www/html/postfix-report/` | HTML reports (`0755`) |
+| `/usr/share/doc/postfix-report/examples/` | sample configurations for Apache, Nginx and cron |
 
-Crea anche l'utente di sistema `postfix-report`. Dopo l'installazione restano
-da fare: i permessi di lettura dei log (sotto), il controllo della
-configurazione e l'abilitazione del timer:
+It also creates the `postfix-report` system user. After installation, three
+steps remain: log read permissions (below), checking the configuration and
+enabling the timer:
 
 ```bash
 sudo postfix-report -config /etc/postfix-report/config.yaml check-config
@@ -125,168 +133,170 @@ sudo runuser -u postfix-report -- postfix-report -config /etc/postfix-report/con
 sudo systemctl enable --now postfix-report.timer
 ```
 
-## Installazione con .deb (Debian, Ubuntu)
+## Installing the .deb (Debian, Ubuntu)
 
-I pacchetti `.deb` per amd64 e arm64 sono allegati alle stesse release. Il
-binario è statico (con il database dei fusi orari incorporato), quindi lo
-stesso pacchetto va su Debian 12/13 e Ubuntu 22.04/24.04 e successive:
+`.deb` packages for amd64 and arm64 are attached to the same releases. The
+binary is static (with the time zone database embedded), so the same package
+works on Debian 12/13 and Ubuntu 22.04/24.04 and later:
 
 ```bash
-sudo apt install ./postfix-report_<versione>-1_amd64.deb
+sudo apt install ./postfix-report_<version>-1_amd64.deb
 ```
 
-Per costruirlo in proprio basta Go ≥ 1.25 e `dpkg-deb`:
-`make deb` (oppure `make deb DEB_ARCH=arm64`) produce
-`dist/postfix-report_<versione>-1_<arch>.deb`. Il Go di Debian è troppo
-vecchio per questo modulo: il pacchetto si assembla attorno al binario
-compilato con il Go ufficiale, senza dipendenze di sistema.
+To build it yourself you only need Go ≥ 1.25 and `dpkg-deb`: `make deb` (or
+`make deb DEB_ARCH=arm64`) produces `dist/postfix-report_<version>-1_<arch>.deb`.
+Debian's own Go is too old for this module: the package is assembled around
+the binary built with the official Go toolchain, with no system dependencies.
 
-Rispetto all'RPM cambiano solo questi dettagli:
+Compared with the RPM, only these details differ:
 
-* **Log**: in `/etc/postfix-report/config.yaml` i percorsi predefiniti sono
-  `/var/log/mail.log` e `/var/log/mail.log.*`. Sono file `root:adm 0640`,
-  letti dal servizio tramite `SupplementaryGroups=adm`: non servono ACL. Per
-  altri percorsi basta modificare `input.paths`.
-* **Directory dei report**: `/var/www/html/postfix-report` è creata da
-  `postinst` (la policy Debian non permette di includerla nel pacchetto).
-* **Timer**: non è abilitato all'installazione. Se l'amministratore lo
-  abilita, la scelta resta valida negli aggiornamenti; `apt purge` la azzera.
-* **Rimozione**: `apt purge` rimuove la configurazione, ma lascia database,
-  report e utente di sistema.
+* **Logs**: in `/etc/postfix-report/config.yaml` the default paths are
+  `/var/log/mail.log` and `/var/log/mail.log.*`. These files are
+  `root:adm 0640` and the service reads them through `SupplementaryGroups=adm`:
+  no ACLs are needed. For other paths, edit `input.paths`.
+* **Report directory**: `/var/www/html/postfix-report` is created by
+  `postinst` (Debian policy does not allow shipping it in the package).
+* **Timer**: not enabled on installation. If the administrator enables it,
+  the choice is kept across upgrades; `apt purge` resets it.
+* **Removal**: `apt purge` removes the configuration but keeps the database,
+  the reports and the system user.
 
-## Installazione manuale (esempio per Enterprise Linux)
+## Manual installation (Enterprise Linux example)
 
 ```bash
-# 1. Binario e documentazione
+# 1. Binary and documentation
 sudo make install                       # /usr/local/bin/postfix-report
 
-# 2. Utente di servizio senza login (il programma non deve girare come root)
+# 2. Service user without login (the program must not run as root)
 sudo useradd --system --home-dir /var/lib/postfix-report --shell /sbin/nologin postfix-report
 
-# 3. Directory: database privato, HTML leggibile dal web server
+# 3. Directories: private database, HTML readable by the web server
 sudo install -d -m 0750 -o postfix-report -g postfix-report /var/lib/postfix-report
 sudo install -d -m 0755 -o postfix-report -g postfix-report /var/www/html/postfix-report
 sudo install -d -m 0755 /etc/postfix-report
 sudo install -m 0640 -o root -g postfix-report config.example.yaml /etc/postfix-report/config.yaml
 
-# 4. SELinux (EL): ripristina i contesti della directory pubblicata
+# 4. SELinux (EL): restore the contexts of the published directory
 sudo restorecon -Rv /var/www/html/postfix-report
 ```
 
-### Permessi di lettura dei log
+### Log read permissions
 
-Il servizio legge i log con l'utente `postfix-report`.
+The service reads the logs as the `postfix-report` user.
 
-* **Debian/Ubuntu**: `/var/log/mail.log*` sono `root:adm 0640`.
-  L'unità systemd aggiunge già il gruppo `adm` (`SupplementaryGroups=adm`).
-  In configurazione usare `paths: [/var/log/mail.log, /var/log/mail.log.*]`
-  (il default del pacchetto `.deb`).
-* **Enterprise Linux**: `/var/log/maillog` è `root:root 0600`. Due alternative:
-  1. **rsyslog** (consigliata): far creare il file con un gruppo dedicato, in
-     `/etc/rsyslog.d/maillog.conf`:
+* **Debian/Ubuntu**: `/var/log/mail.log*` are `root:adm 0640`. The systemd
+  unit already adds the `adm` group (`SupplementaryGroups=adm`). In the
+  configuration use `paths: [/var/log/mail.log, /var/log/mail.log.*]` (the
+  default in the `.deb` package).
+* **Enterprise Linux**: `/var/log/maillog` is `root:root 0600`. Two options:
+  1. **rsyslog** (recommended): have the file created with a dedicated group,
+     in `/etc/rsyslog.d/maillog.conf`:
      ```
      mail.* action(type="omfile" file="/var/log/maillog" fileGroup="postfix-report" fileCreateMode="0640")
      ```
-     Va rimossa la riga `mail.*` predefinita da `/etc/rsyslog.conf`. Poi:
-     `systemctl restart rsyslog`. I file ruotati mantengono il gruppo.
-  2. **ACL**: `setfacl -m u:postfix-report:r /var/log/maillog`. L'ACL va
-     riapplicata dopo ogni rotazione con un `postrotate` in
-     `/etc/logrotate.d/rsyslog`. Se la rotazione comprime i file, verificare
-     che i `.gz` restino leggibili.
+     Remove the default `mail.*` line from `/etc/rsyslog.conf`, then run
+     `systemctl restart rsyslog`. Rotated files keep the group.
+  2. **ACL**: `setfacl -m u:postfix-report:r /var/log/maillog`. The ACL must be
+     reapplied after every rotation with a `postrotate` in
+     `/etc/logrotate.d/rsyslog`. If rotation compresses the files, check that
+     the `.gz` files remain readable.
 
-  Verifica: `runuser -u postfix-report -- head -1 /var/log/maillog`.
+  Check: `runuser -u postfix-report -- head -1 /var/log/maillog`.
 
-### Permessi di scrittura
+### Write permissions
 
-* Il database (`/var/lib/postfix-report/report.db`) è creato con permessi
-  `0640` in una directory `0750`: contiene indirizzi e IP e **non deve stare
-  sotto la directory web** (la configurazione lo rifiuta).
-* La directory HTML deve essere scrivibile dall'utente `postfix-report` e
-  leggibile dal web server. Le pagine sono create con permessi `0644`.
+* The database (`/var/lib/postfix-report/report.db`) is created with mode
+  `0640` in a `0750` directory: it contains addresses and IPs and **must not
+  live under the web directory** (the configuration rejects that).
+* The HTML directory must be writable by the `postfix-report` user and
+  readable by the web server. Pages are created with mode `0644`.
 
-## Configurazione
+## Configuration
 
-Vedi [`config.example.yaml`](config.example.yaml), commentato. Lo schema è
-validato in modo stretto (chiavi sconosciute, durate, fuso, anno, percorsi):
+See [`config.example.yaml`](config.example.yaml) (comments in Italian). The
+schema is validated strictly (unknown keys, durations, time zone, year,
+paths):
 
 ```bash
 postfix-report -config /etc/postfix-report/config.yaml check-config
 ```
 
-Punti da adattare al server:
+Settings to adapt to your server:
 
-* `input.paths`: file e glob dei log, compresi i ruotati e i `.gz`.
-* `input.timezone`: il fuso dei timestamp syslog.
-* `correlation.reinject_uids` e `correlation.filter_transports`: indicano se,
-  e come, un content filter reinietta i messaggi (vedi LOG_ANALYSIS.md §4.1).
-  Dopo il primo import, `verify` segnala reiniezioni orfane o passaggi al filtro
-  senza reiniezione, che indicano una configurazione da correggere.
+* `input.paths`: log files and globs, rotated and `.gz` files included.
+* `input.timezone`: the time zone of the syslog timestamps.
+* `output.language`: `it` (default) or `en`, the language of the reports.
+  Changing it regenerates the whole archive at the next `update`.
+* `correlation.reinject_uids` and `correlation.filter_transports`: whether,
+  and how, a content filter reinjects messages (see LOG_ANALYSIS.md §4.1).
+  After the first import, `verify` reports orphan reinjections or filter
+  handoffs without reinjection, which point to a configuration to fix.
 
-## Uso
+## Usage
 
 ```bash
 postfix-report import --file /var/log/maillog
 postfix-report import --directory /var/log/mail
 postfix-report import --file /var/log/maillog.1.gz
 
-postfix-report generate                  # solo le pagine invalidate
+postfix-report generate                  # only the invalidated pages
 postfix-report generate --all
 postfix-report generate --date 2026-10-12
 postfix-report generate --week 2026-W42
 postfix-report generate --month 2026-10
 postfix-report generate --year 2026
 
-postfix-report update     # importa input.paths, ricalcola, rigenera il necessario
-postfix-report rebuild    # ricorrela tutti gli eventi memorizzati e rigenera tutto
-postfix-report verify     # integrità, coerenza, link dei report
+postfix-report update     # import input.paths, recompute, regenerate what is needed
+postfix-report rebuild    # re-correlate all stored events and regenerate everything
+postfix-report verify     # integrity, consistency, report links
 postfix-report stats --from 2026-10-11 --to 2026-10-13 [--json]
 ```
 
-Il file di configurazione si indica con `-config FILE` (default
-`/etc/postfix-report/config.yaml`, oppure `POSTFIX_REPORT_CONFIG`).
+The configuration file is given with `-config FILE` (default
+`/etc/postfix-report/config.yaml`, or `POSTFIX_REPORT_CONFIG`).
 
-| Codice di uscita | Significato |
+| Exit code | Meaning |
 |---|---|
-| 0 | eseguito correttamente |
-| 1 | errore |
-| 2 | uso o configurazione non validi |
-| 3 | un'altra esecuzione è in corso (lock): nessuna azione |
-| 4 | `verify` ha trovato incoerenze |
-| 5 | import parziale: alcuni file non leggibili, gli altri importati |
+| 0 | success |
+| 1 | error |
+| 2 | invalid usage or configuration |
+| 3 | another run is in progress (lock): nothing done |
+| 4 | `verify` found inconsistencies |
+| 5 | partial import: some files unreadable, the others imported |
 
-### Cosa fa `update`
+### What `update` does
 
-1. Espande `input.paths` e ordina i file dal più vecchio (primo timestamp).
-2. Riconosce ogni file dal contenuto (hash dei primi 4 KiB decompressi). Un
-   file già letto per intero viene saltato; un file cresciuto o ruotato
-   riprende dall'offset salvato.
-3. Salva eventi e checkpoint nella stessa transazione: un'interruzione non
-   lascia stati intermedi e l'esecuzione successiva riprende dal punto giusto.
-4. Correla i nuovi eventi partendo dallo stato dei messaggi ancora in coda.
-   Se arrivano eventi più vecchi di quelli già correlati, l'host viene
-   ricorrelato da zero.
-5. Ricalcola gli aggregati dei soli giorni toccati e invalida le pagine che ne
-   dipendono: giorno, settimana, mese, anno, i periodi adiacenti (link e
-   confronti) e l'indice.
-6. Rigenera le pagine invalidate. Una pagina è riscritta solo se il suo
-   contenuto è cambiato, scrivendo su un file temporaneo e rinominandolo.
-   Dopo un aggiornamento del programma o una modifica alle opzioni dei report
-   (`output`, `reports`, `privacy`) la prima esecuzione rigenera tutte le
-   pagine, così l'archivio ha un aspetto uniforme.
+1. Expands `input.paths` and sorts the files from the oldest (first timestamp).
+2. Recognizes each file by its content (hash of the first 4 KiB, decompressed).
+   A file already read in full is skipped; a file that grew or was rotated
+   resumes from the saved offset.
+3. Stores events and checkpoint in the same transaction: an interruption
+   leaves no intermediate state and the next run resumes at the right point.
+4. Correlates the new events starting from the state of the messages still in
+   the queue. If events older than those already correlated arrive, the host
+   is re-correlated from scratch.
+5. Recomputes the aggregates of the affected days only and invalidates the
+   pages that depend on them: day, week, month, year, the adjacent periods
+   (links and comparisons) and the index.
+6. Regenerates the invalidated pages. A page is rewritten only if its content
+   changed, by writing a temporary file and renaming it. After a program
+   upgrade or a change to the report options (`output`, `reports`,
+   `privacy`), the first run regenerates every page, so the archive looks
+   consistent.
 
-Un lock (`<database>.lock`, `flock`) impedisce esecuzioni concorrenti.
+A lock (`<database>.lock`, `flock`) prevents concurrent runs.
 
-## Esecuzione automatica (systemd)
+## Scheduled runs (systemd)
 
 ```bash
-sudo make install-systemd        # non serve con il pacchetto RPM o .deb
+sudo make install-systemd        # not needed with the RPM or .deb package
 sudo systemctl daemon-reload
 sudo systemctl enable --now postfix-report.timer
 systemctl list-timers postfix-report.timer
 journalctl -u postfix-report.service
 ```
 
-Il timer esegue `update` ogni ora. Per cambiare frequenza:
+The timer runs `update` every hour. To change the frequency:
 
 ```bash
 sudo systemctl edit postfix-report.timer
@@ -295,70 +305,69 @@ sudo systemctl edit postfix-report.timer
 # OnCalendar=*:0/15
 ```
 
-L'unità gira come `postfix-report`, senza rete (`PrivateNetwork=yes`) e con il
-filesystem in sola lettura salvo database e directory HTML. In alternativa al
-timer si può usare il file cron `deploy/cron/postfix-report`.
+The unit runs as `postfix-report`, without network (`PrivateNetwork=yes`) and
+with a read-only filesystem except for the database and the HTML directory.
+Instead of the timer you can use the cron file `deploy/cron/postfix-report`.
 
-## Pubblicazione con Apache o Nginx
+## Publishing with Apache or Nginx
 
-I report contengono informazioni sul traffico (domini, IP, utenti SASL,
-motivi di rifiuto): **vanno protetti** con autenticazione e, possibilmente,
-con restrizioni di rete. Esempi pronti:
+The reports contain traffic information (domains, IPs, SASL users, rejection
+reasons): **they must be protected** with authentication and, if possible,
+network restrictions. Ready-made examples:
 
 * Apache: [`deploy/apache/postfix-report.conf`](deploy/apache/postfix-report.conf)
 * Nginx: [`deploy/nginx/postfix-report.conf`](deploy/nginx/postfix-report.conf)
 
-Entrambi abilitano Basic Auth (da usare solo su HTTPS), negano i file nascosti
-e impostano una Content-Security-Policy compatibile con i report: script solo
-locali, nessuna connessione verso l'esterno.
+Both enable Basic Auth (to be used over HTTPS only), deny hidden files and
+set a Content-Security-Policy compatible with the reports: local scripts only,
+no outbound connections.
 
-Le pagine usano solo percorsi relativi: la directory si può pubblicare sotto
-qualsiasi prefisso URL, copiare altrove o aprire con `file://`. I dati dei
-grafici sono incorporati in ogni pagina: non ci sono `fetch()` né CDN.
+The pages use relative paths only: the directory can be published under any
+URL prefix, copied elsewhere or opened via `file://`. The chart data is
+embedded in each page: there is no `fetch()` and no CDN.
 
-## Sicurezza e privacy
+## Security and privacy
 
-* Tutti i dati dei log sono soggetti a escaping HTML (`html/template`). I dati
-  dei grafici sono JSON incorporato in `<script type="application/json">`.
-* `privacy.anonymize_email` pseudonimizza la parte locale degli indirizzi e gli
-  utenti SASL con HMAC. La chiave è nel database, mai nei report.
-  `privacy.anonymize_ip` tronca gli IP a /24 o /48. Entrambe le opzioni sono
-  disattivate di default.
-* I motivi di rifiuto e differimento sono normalizzati (indirizzi → `<addr>`,
-  IP → `[ip]`) per raggrupparli. Il testo originale resta solo nel database.
-* La directory web contiene solo HTML, CSS e JS. Database e log non vi sono
-  mai scritti. `verify` segnala eventuali file estranei.
-* Gli oggetti dei messaggi (righe `warning: header Subject:`) non vengono
-  memorizzati.
+* All log data is HTML-escaped (`html/template`). Chart data is JSON embedded
+  in `<script type="application/json">`.
+* `privacy.anonymize_email` pseudonymizes the local part of addresses and the
+  SASL users with an HMAC. The key is stored in the database, never in the
+  reports. `privacy.anonymize_ip` truncates IPs to /24 or /48. Both options
+  are disabled by default.
+* Rejection and deferral reasons are normalized (addresses → `<addr>`,
+  IPs → `[ip]`) to group them. The original text stays in the database only.
+* The web directory contains only HTML, CSS and JS. The database and the logs
+  are never written there. `verify` reports any foreign file.
+* Message subjects (`warning: header Subject:` lines) are not stored.
 
-## Test e validazione
+## Tests and validation
 
 ```bash
-make test        # unit, integrazione, end-to-end
-make validate    # confronto con il ricalcolo indipendente sul log di riferimento
-make demo        # rigenera demo/ da dati sintetici
+make test        # unit, integration, end-to-end
+make validate    # comparison with the independent recount on the reference log
+make demo        # regenerate demo/ from synthetic data
 ```
 
-* I test di regressione sul log reale si attivano se esiste `samples/maillog`
-  (oppure `./maillog`, o `POSTFIX_REPORT_REAL_LOG`). Il log non è distribuito:
-  i test conservano solo conteggi aggregati.
-* I test sui report aprono le pagine con un server HTTP statico sotto un
-  prefisso URL e, se Chromium è installato, via `file://` in modalità headless.
-* `cmd/synthlog` genera log sintetici realistici (domini `example.*`, IP di
-  documentazione) per demo, benchmark e test.
+* The regression tests on the real log run if `samples/maillog` exists (or
+  `./maillog`, or `POSTFIX_REPORT_REAL_LOG`). The log is not distributed: the
+  tests keep only aggregate counts.
+* The report tests open the pages through a static HTTP server under a URL
+  prefix and, if Chromium is installed, via `file://` in headless mode.
+* `cmd/synthlog` generates realistic synthetic logs (`example.*` domains,
+  documentation IPs) for demos, benchmarks and tests.
 
-## Prestazioni
+## Performance
 
-Su un Intel N150 (4 core, basso consumo): parser circa 0,5 µs per riga;
-pipeline completa (import, correlazione, aggregazione) circa 24.000 righe/s.
-Il log di riferimento (254.884 righe) si importa in circa 10 s. Il database
-occupa circa 30 MB per 150.000 righe di log al giorno (vedi LIMITATIONS.md).
+On an Intel N150 (4 cores, low power): parser about 0.5 µs per line; full
+pipeline (import, correlation, aggregation) about 24,000 lines/s. The
+reference log (254,884 lines) imports in about 10 s. The database takes about
+30 MB per 150,000 log lines per day (see LIMITATIONS.md).
 
-## Licenza
+## License
 
 Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
 
-Questo programma è software libero: puoi ridistribuirlo e/o modificarlo nei
-termini della GNU General Public License pubblicata dalla Free Software
-Foundation, versione 3 o (a tua scelta) qualsiasi versione successiva.
-Vedi [LICENSE](LICENSE). SPDX: `GPL-3.0-or-later`.
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See [LICENSE](LICENSE). SPDX: `GPL-3.0-or-later`.

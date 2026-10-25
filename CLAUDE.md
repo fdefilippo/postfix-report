@@ -90,4 +90,6 @@ Metric definitions: METRICS.md. Observed log formats: LOG_ANALYSIS.md.
   (`reports-real/` is git-ignored). Test fixtures must be synthetic (example.org, RFC 5737 IPs).
 - Every Go file starts with the GPL-3.0-or-later SPDX header (author Francesco Defilippo).
 - Missing data is never shown as zero; every count states its unit.
+- Report texts are written in Italian and wrapped in `g.tr`/`g.trf` (template: `{{t "..."}}`, JS: `L(it, en)`);
+  add the English to `internal/report/i18n.go`. `TestEnglish` fails on any missing translation.
 - Any change to metric semantics must update METRICS.md and keep `make validate` at zero differences.

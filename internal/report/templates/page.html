@@ -1,18 +1,18 @@
 {{define "page" -}}
 <!doctype html>
-<html lang="it">
+<html lang="{{.Lang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title>{{.Title}} · {{.SiteTitle}}</title>
-<link rel="stylesheet" href="{{.Root}}assets/css/report.css">
+<link rel="stylesheet" href="{{.Root}}assets/css/report.css?v={{.AssetVer}}">
 </head>
 <body>
 <header class="topbar">
   <a class="brand" href="{{.Root}}index.html">{{.SiteTitle}}</a>
-  <nav aria-label="Navigazione principale">
+  <nav aria-label="{{t "Navigazione principale"}}">
     {{- range .Nav}}<a href="{{.Href}}"{{if .Active}} class="active" aria-current="page"{{end}}>{{.Text}}</a>{{end -}}
   </nav>
 </header>
@@ -24,7 +24,7 @@
       {{- if .Subtitle}}<p class="sub">{{.Subtitle}}</p>{{end}}
     </div>
     {{- if or .Prev .Next .Up}}
-    <nav class="pager" aria-label="Periodi adiacenti">
+    <nav class="pager" aria-label="{{t "Periodi adiacenti"}}">
       {{if .Prev}}<a href="{{.Prev.Href}}" rel="prev">‹ {{.Prev.Text}}</a>{{else}}<span>‹</span>{{end}}
       {{if .Up}}<a href="{{.Up.Href}}">{{.Up.Text}}</a>{{end}}
       {{if .Next}}<a href="{{.Next.Href}}" rel="next">{{.Next.Text}} ›</a>{{else}}<span>›</span>{{end}}
@@ -36,11 +36,11 @@
   {{- range .Blocks}}{{template "block" .}}{{end}}
 </main>
 <footer>
-  <p>{{if .DataAsOf}}Dati fino a {{.DataAsOf}} · {{end}}Generato il {{.Generated}} · postfix-report {{.Version}}{{if .Privacy}} · {{.Privacy}}{{end}}</p>
-  <p class="noprint">I conteggi indicano sempre l'unità: messaggi, destinatari, tentativi, eventi o sessioni. Definizioni in METRICS.md.</p>
+  <p>{{if .DataAsOf}}{{t "Dati fino a %s" .DataAsOf}} · {{end}}{{t "Generato il %s" .Generated}} · postfix-report {{.Version}}{{if .Privacy}} · {{.Privacy}}{{end}}</p>
+  <p class="noprint">{{t "I conteggi indicano sempre l'unità: messaggi, destinatari, tentativi, eventi o sessioni. Definizioni in METRICS.md."}}</p>
   <p class="copyright">Copyright © 2026 Francesco Defilippo &lt;francesco@defilippo.org&gt; · https://github.com/fdefilippo/postfix-report · License: GNU GPLv3 or later</p>
 </footer>
-<script src="{{.Root}}assets/js/report.js"></script>
+<script src="{{.Root}}assets/js/report.js?v={{.AssetVer}}"></script>
 </body>
 </html>
 {{end}}
@@ -54,7 +54,7 @@
 </section>
 {{- else if eq .Kind "tabs"}}
 <div class="tabs">
-  <div class="tablist" role="tablist" aria-label="Sezioni della pagina" hidden>
+  <div class="tablist" role="tablist" aria-label="{{t "Sezioni della pagina"}}" hidden>
     {{- range .Children}}<button type="button" role="tab" id="tab-{{.ID}}" aria-controls="{{.ID}}" aria-selected="false" tabindex="-1">{{.Title}}</button>{{end -}}
   </div>
   {{- range .Children}}{{template "block" .}}{{end}}
@@ -82,8 +82,8 @@
 <div class="chart-wrap">
   <div class="chart" data-chart="{{.Chart.ID}}-data"></div>
   <script type="application/json" id="{{.Chart.ID}}-data">{{.Chart.JSON}}</script>
-  <p class="nojs-note">Il grafico richiede JavaScript: i dati sono nella tabella qui sotto.</p>
-  {{if .Chart.Table}}<details class="data"><summary>Mostra i dati del grafico</summary>{{template "table" .Chart.Table}}</details>{{end}}
+  <p class="nojs-note">{{t "Il grafico richiede JavaScript: i dati sono nella tabella qui sotto."}}</p>
+  {{if .Chart.Table}}<details class="data"><summary>{{t "Mostra i dati del grafico"}}</summary>{{template "table" .Chart.Table}}</details>{{end}}
 </div>
 {{- else if eq .Kind "table"}}
 {{template "table" .Table}}
@@ -106,7 +106,7 @@
 {{end}}
 
 {{define "table"}}
-{{- if .Filter}}<div class="filter"><input type="search" placeholder="Filtra…" aria-label="Filtra la tabella" data-filter="{{.ID}}"><span class="filter-count"></span></div>{{end}}
+{{- if .Filter}}<div class="filter"><input type="search" placeholder="{{t "Filtra…"}}" aria-label="{{t "Filtra la tabella"}}" data-filter="{{.ID}}"><span class="filter-count"></span></div>{{end}}
 <div class="table-wrap">
 <table id="{{.ID}}"{{if .Sortable}} class="sortable"{{end}}>
   <thead><tr>{{range .Head}}<th{{if .Num}} class="num"{{end}}>{{.Text}}</th>{{end}}</tr></thead>
@@ -120,7 +120,7 @@
     </td>{{end}}
   </tr>
   {{- else}}
-  <tr><td colspan="{{len .Head}}" class="muted">{{if .Empty}}{{.Empty}}{{else}}Nessun dato.{{end}}</td></tr>
+  <tr><td colspan="{{len .Head}}" class="muted">{{if .Empty}}{{.Empty}}{{else}}{{t "Nessun dato."}}{{end}}</td></tr>
   {{- end}}
   </tbody>
 </table>

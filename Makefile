@@ -87,7 +87,7 @@ install: build
 	install -D -m 0644 docs/postfix-report.1 $(DESTDIR)$(PREFIX)/share/man/man1/postfix-report.1
 	install -D -m 0644 config.example.yaml $(DESTDIR)$(PREFIX)/share/doc/postfix-report/config.example.yaml
 	install -D -m 0644 README.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/README.md
-	install -D -m 0644 README.en.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/README.en.md
+	install -D -m 0644 README.it.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/README.it.md
 	install -D -m 0644 METRICS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/METRICS.md
 	install -D -m 0644 LIMITATIONS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/LIMITATIONS.md
 
@@ -110,11 +110,13 @@ uninstall:
 
 # Source tarball for rpmbuild: files tracked by git (working-tree content,
 # demo/ and dot-directories excluded) plus vendor/, so the RPM build needs no network.
+# The spec is moved to the top of the tarball, the only copy: "rpmbuild -ta"
+# refuses tarballs with more than one.
 dist:
 	@test -n "$(RPM_VERSION)" || { echo "Version not found in $(RPM_SPEC)"; exit 1; }
 	rm -rf dist/$(DIST_NAME) dist/$(DIST_NAME).tar.gz && mkdir -p dist/$(DIST_NAME)
 	git ls-files -z -- . ':!:demo' ':!:.*' | tar --null -T - -cf - | tar -xf - -C dist/$(DIST_NAME)
-	cp $(RPM_SPEC) dist/$(DIST_NAME)/
+	mv dist/$(DIST_NAME)/$(RPM_SPEC) dist/$(DIST_NAME)/
 	cd dist/$(DIST_NAME) && $(GO) mod vendor
 	tar -C dist --owner=0 --group=0 --sort=name -czf dist/$(DIST_NAME).tar.gz $(DIST_NAME)
 	rm -rf dist/$(DIST_NAME)
@@ -150,7 +152,7 @@ deb:
 	gzip -9n -c docs/postfix-report.1 > $(DEB_ROOT)/usr/share/man/man1/postfix-report.1.gz
 	install -m 0644 packaging/deb/copyright $(DEB_ROOT)/etc/postfix-report/config.yaml $(DEB_DOC)/
 	mv $(DEB_DOC)/config.yaml $(DEB_DOC)/config.example.yaml
-	for f in README.md README.en.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md; do gzip -9n -c $$f > $(DEB_DOC)/$$f.gz; done
+	for f in README.md README.it.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md; do gzip -9n -c $$f > $(DEB_DOC)/$$f.gz; done
 	install -m 0644 deploy/apache/postfix-report.conf $(DEB_DOC)/examples/apache-postfix-report.conf
 	install -m 0644 deploy/nginx/postfix-report.conf $(DEB_DOC)/examples/nginx-postfix-report.conf
 	install -m 0644 deploy/cron/postfix-report $(DEB_DOC)/examples/cron-postfix-report

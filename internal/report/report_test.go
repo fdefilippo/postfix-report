@@ -219,6 +219,11 @@ func TestNav(t *testing.T) {
 		if strings.Join(got, "|") != w {
 			t.Errorf("%s: nav\n got %s\nwant %s", p, strings.Join(got, "|"), w)
 		}
+		// Asset URLs carry a content hash, so browsers never keep stale CSS/JS.
+		if !regexp.MustCompile(`assets/css/report\.css\?v=[0-9a-f]{12}"`).MatchString(body) ||
+			!regexp.MustCompile(`assets/js/report\.js\?v=[0-9a-f]{12}"`).MatchString(body) {
+			t.Errorf("%s: asset URLs without version", p)
+		}
 		if n := strings.Count(body, env.Cfg.Output.Title+"</a>"); n != 1 || strings.Contains(body, "<small>postfix-report</small>") {
 			t.Errorf("%s: site title shown %d times in the top bar", p, n)
 		}
@@ -249,6 +254,56 @@ func TestWeekendShading(t *testing.T) {
 	m := re.FindString(read(t, env, "monthly/2025-12.html"))
 	if !strings.HasPrefix(m, `"weekend":[false,false,false,false,false,true,true,false`) || strings.Count(m, "true") != 8 {
 		t.Errorf("monthly/2025-12: %s", m)
+	}
+}
+
+// TestEnglish generates the archive with output.language: en. Every text
+// must have a translation, and no Italian may be left in the pages; numbers,
+// dates and tabs follow the language.
+func TestEnglish(t *testing.T) {
+	env, a, _ := fixture(t)
+	env.Cfg.Output.Language = "en"
+	g := newGen(t, env, a)
+	if _, err := g.GenerateAll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if u := g.Untranslated(); len(u) > 0 {
+		t.Errorf("untranslated texts:\n%s", strings.Join(u, "\n"))
+	}
+	italian := regexp.MustCompile(`(?i)[àèéìòù]|\b(dati|giorn[oi]|messaggi|copertura|settimana|mese|anno|della|delle|nessun[ao]?|rifiuti|consegne|ultimi|traffico)\b`)
+	files, err := filepath.Glob(filepath.Join(env.Cfg.Output.Directory, "*", "*.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files = append(files, filepath.Join(env.Cfg.Output.Directory, "index.html"))
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body := string(b)
+		if !strings.Contains(body, `<html lang="en">`) {
+			t.Errorf("%s: lang is not en", f)
+		}
+		if m := italian.FindAllString(body, 5); m != nil {
+			t.Errorf("%s: Italian text left: %q", f, m)
+		}
+	}
+	index := read(t, env, "index.html")
+	if !regexp.MustCompile(`class="value">\d{1,3}(,\d{3})+<`).MatchString(index) {
+		t.Error("index: no KPI with English thousands separators")
+	}
+	for p, want := range map[string]string{
+		"daily/2026-01-12.html":   "<h1>Monday 12 January 2026</h1>",
+		"weekly/2026-W01.html":    "<h1>Week 2026-W01 (Dec 29 – Jan 4, 2026)</h1>",
+		"monthly/2025-12.html":    "<h1>December 2025</h1>",
+		"yearly/2026.html":        "<h1>Year 2026</h1>",
+		"index.html":              `<button type="button" role="tab" id="tab-last-seven-days" aria-controls="last-seven-days"`,
+		"daily/2026-01-12.html#2": `aria-controls="rejections-and-errors"`,
+	} {
+		if body := read(t, env, strings.TrimSuffix(p, "#2")); !strings.Contains(body, want) {
+			t.Errorf("%s: missing %s", p, want)
+		}
 	}
 }
 

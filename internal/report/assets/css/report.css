@@ -131,7 +131,7 @@ h1 { font-size: 22px; margin: 0; font-weight: 650; }
 .chart .hit:hover, .chart .hit:focus { fill: rgba(31, 95, 174, .07); }
 .chart .missing { fill: #eef0f3; stroke: none; }
 .chart .partial { fill: #fbf4e3; }
-.chart .weekend { fill: #e7eef8; }
+.chart .weekend { fill: #dde7f5; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
 .legend-item {
   font: inherit; font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 14px;
@@ -140,7 +140,7 @@ h1 { font-size: 22px; margin: 0; font-weight: 650; }
 .legend-item.off { opacity: .45; text-decoration: line-through; }
 .legend-note { font-size: 12px; color: var(--muted); align-self: center; }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-.swatch.weekend { background: #e7eef8; border: 1px solid #cdd9ea; }
+.swatch.weekend { background: #dde7f5; border: 1px solid #c3d2e8; }
 .swatch.hatch { background: repeating-linear-gradient(45deg, #d5dae1 0 3px, #eef0f3 3px 6px); }
 .nojs-note { color: var(--muted); font-size: 12px; }
 html.js .nojs-note { display: none; }

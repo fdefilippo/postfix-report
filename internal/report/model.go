@@ -7,13 +7,11 @@ package report
 import (
 	"encoding/json"
 	"html/template"
-	"math"
-	"strconv"
-	"strings"
 )
 
 // Page is the model of one HTML page.
 type Page struct {
+	Lang      string // html lang attribute: "it" or "en"
 	Root      string // relative prefix to the output root ("" or "../")
 	SiteTitle string
 	Title     string
@@ -28,6 +26,7 @@ type Page struct {
 	Generated string
 	DataAsOf  string
 	Version   string
+	AssetVer  string // content hash of the embedded assets, appended to their URLs
 	Privacy   string
 }
 
@@ -179,95 +178,6 @@ const (
 	colOther    = "#6b7a8c"
 	colBytes    = "#3a8fb7"
 )
-
-// ---- Italian number formatting ----
-
-func groupThousands(s string) string {
-	neg := strings.HasPrefix(s, "-")
-	if neg {
-		s = s[1:]
-	}
-	var b strings.Builder
-	for i, c := range s {
-		if i > 0 && (len(s)-i)%3 == 0 {
-			b.WriteByte('.')
-		}
-		b.WriteRune(c)
-	}
-	if neg {
-		return "-" + b.String()
-	}
-	return b.String()
-}
-
-// fmtInt formats an integer with "." thousands separators.
-func fmtInt(v float64) string {
-	return groupThousands(strconv.FormatInt(int64(math.Round(v)), 10))
-}
-
-// fmtDec formats with d decimals and "," as decimal separator.
-func fmtDec(v float64, d int) string {
-	s := strconv.FormatFloat(v, 'f', d, 64)
-	ip, fp, ok := strings.Cut(s, ".")
-	if !ok {
-		return groupThousands(ip)
-	}
-	return groupThousands(ip) + "," + fp
-}
-
-// fmtBytes formats a byte count with decimal units.
-func fmtBytes(v float64) string {
-	units := []string{"B", "kB", "MB", "GB", "TB", "PB"}
-	i := 0
-	for math.Abs(v) >= 1000 && i < len(units)-1 {
-		v /= 1000
-		i++
-	}
-	if i == 0 {
-		return fmtInt(v) + " B"
-	}
-	return fmtDec(v, 1) + " " + units[i]
-}
-
-// fmtSeconds formats a duration in seconds.
-func fmtSeconds(v float64) string {
-	switch {
-	case v < 60:
-		return fmtDec(v, 2) + " s"
-	case v < 3600:
-		return fmtDec(v/60, 1) + " min"
-	case v < 86400:
-		return fmtDec(v/3600, 1) + " h"
-	default:
-		return fmtDec(v/86400, 1) + " g"
-	}
-}
-
-// fmtPct formats a percentage.
-func fmtPct(v float64) string { return fmtDec(v, 1) + "%" }
-
-// fmtDelta formats a relative change and returns its CSS class.
-func fmtDelta(cur, prev float64) (string, string) {
-	if prev == 0 {
-		if cur == 0 {
-			return "0,0%", "na"
-		}
-		return "n/d", "na"
-	}
-	d := (cur - prev) / prev * 100
-	s := fmtDec(d, 1) + "%"
-	if d > 0 {
-		s = "+" + s
-	}
-	cls := "na"
-	switch {
-	case d > 0.05:
-		cls = "up"
-	case d < -0.05:
-		cls = "down"
-	}
-	return s, cls
-}
 
 func f64(v float64) *float64 { return &v }
 

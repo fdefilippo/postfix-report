@@ -45,6 +45,8 @@ output:
   # Directory pubblicata dal web server: contiene solo HTML, CSS e JS.
   directory: /var/www/html/postfix-report
   title: Postfix report
+  # Lingua dei report: it (italiano) oppure en (inglese).
+  language: it
 
 reports:
   daily: true

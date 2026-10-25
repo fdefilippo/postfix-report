@@ -42,6 +42,7 @@ func TestValidationErrors(t *testing.T) {
 		"bad tz":        "input:\n  timezone: Mars/Base\n",
 		"bad duration":  "coverage:\n  gap_threshold: soon\n",
 		"top limit":     "reports:\n  top_limit: 0\n",
+		"language":      "output:\n  language: fr\n",
 		"db in webroot": "database:\n  path: /srv/www/r.db\noutput:\n  directory: /srv/www\n",
 		"log level":     "logging:\n  level: chatty\n",
 	}

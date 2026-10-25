@@ -32,12 +32,38 @@ var templateFS embed.FS
 //go:embed assets
 var assetFS embed.FS
 
+// assetVer is a short content hash of the embedded CSS and JavaScript. Pages
+// reference the assets as report.css?v=<hash>, so that after an upgrade the
+// browser loads the new files instead of a cached copy.
+var assetVer = func() string {
+	h := sha256.New()
+	err := fs.WalkDir(assetFS, "assets", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		data, err := assetFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(h, "%s\n%d\n", path, len(data))
+		h.Write(data)
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(h.Sum(nil))[:12]
+}()
+
 // generatedPlaceholder is replaced by the generation time when a page is
 // written, so that content hashes ignore it.
 const generatedPlaceholder = "@@GENERATED_AT@@"
 
+// tmpl is parsed once; each generator executes a clone whose "t" function
+// translates into its language (see page).
 var tmpl = template.Must(template.New("").Funcs(template.FuncMap{
 	"barWidth": func(f float64) template.CSS { return template.CSS(fmt.Sprintf("%.1f%%", f*100)) },
+	"t":        fmt.Sprintf,
 }).ParseFS(templateFS, "templates/*.html"))
 
 // Generator renders and writes report pages.
@@ -49,10 +75,12 @@ type Generator struct {
 	Version string
 	Now     func() time.Time
 
-	hasData  bool
-	firstDay period.Period
-	lastDay  period.Period
-	dataAsOf string
+	hasData      bool
+	firstDay     period.Period
+	lastDay      period.Period
+	dataAsOf     string
+	page         *template.Template // tmpl with "t" bound to the language
+	untranslated map[string]bool    // source texts without a translation
 }
 
 // Result reports what a generation run did.
@@ -89,6 +117,11 @@ func (g *Generator) Init() error {
 	if g.Now == nil {
 		g.Now = time.Now
 	}
+	page, err := tmpl.Clone()
+	if err != nil {
+		return err
+	}
+	g.page = page.Funcs(template.FuncMap{"t": g.trf})
 	lo, hi, err := g.Q.DataRange()
 	if err != nil {
 		return err
@@ -343,7 +376,7 @@ func (g *Generator) writeIndex(res *Result) error {
 // (generation time excluded) changed or the file is missing.
 func (g *Generator) writePage(rel, kind, key string, pg *Page, res *Result) error {
 	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, "page", pg); err != nil {
+	if err := g.page.ExecuteTemplate(&buf, "page", pg); err != nil {
 		return err
 	}
 	res.Rendered++
@@ -362,7 +395,7 @@ func (g *Generator) writePage(rel, kind, key string, pg *Page, res *Result) erro
 		}
 	}
 	now := g.Now()
-	out := bytes.Replace(buf.Bytes(), []byte(generatedPlaceholder), []byte(now.In(g.loc()).Format("02/01/2006 15:04:05")), -1)
+	out := bytes.Replace(buf.Bytes(), []byte(generatedPlaceholder), []byte(now.In(g.loc()).Format(g.l().tsFmt)), -1)
 	if err := WriteAtomic(dst, out, 0o644); err != nil {
 		return err
 	}
@@ -442,12 +475,12 @@ func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 // ---- index ----
 
 func (g *Generator) indexPage() (*Page, error) {
-	pg := g.basePage("", "Panoramica", "index", g.lastDay)
+	pg := g.basePage("", g.tr("Panoramica"), "index", g.lastDay)
 	// Only the index shows the end of the data: period pages must not change
 	// when unrelated data arrives.
 	pg.DataAsOf = g.dataAsOf
 	if !g.hasData {
-		pg.Banners = []Banner{{"warn", "Nessun dato importato. Eseguire 'postfix-report update' oppure 'postfix-report import'."}}
+		pg.Banners = []Banner{{"warn", g.tr("Nessun dato importato. Eseguire 'postfix-report update' oppure 'postfix-report import'.")}}
 		return pg, nil
 	}
 	lo, hi, err := g.Q.DataRange()
@@ -458,14 +491,14 @@ func (g *Generator) indexPage() (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	pg.Subtitle = fmt.Sprintf("Dati dal %s al %s", g.ts(lo), g.ts(hi))
+	pg.Subtitle = g.trf("Dati dal %s al %s", g.ts(lo), g.ts(hi))
 	if imp.ID > 0 {
 		lvl := "ok"
-		txt := fmt.Sprintf("Ultimo aggiornamento: %s (%s, esito %s; %s righe lette, %s eventi nuovi, %s duplicati ignorati).",
-			g.ts(imp.Started), imp.Command, imp.Status, fmtInt(float64(imp.Lines)), fmtInt(float64(imp.Events)), fmtInt(float64(imp.Duplicates)))
+		txt := g.trf("Ultimo aggiornamento: %s (%s, esito %s; %s righe lette, %s eventi nuovi, %s duplicati ignorati).",
+			g.ts(imp.Started), imp.Command, imp.Status, g.fmtInt(float64(imp.Lines)), g.fmtInt(float64(imp.Events)), g.fmtInt(float64(imp.Duplicates)))
 		if imp.Status != "ok" {
 			lvl = "bad"
-			txt += " Errore: " + imp.Error
+			txt += " " + g.trf("Errore: %s", imp.Error)
 		}
 		pg.Banners = append(pg.Banners, Banner{lvl, txt})
 	}
@@ -499,8 +532,8 @@ func (g *Generator) indexPage() (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	pg.Blocks = append(pg.Blocks, section("Totali dell'archivio",
-		fmt.Sprintf("Periodo coperto: %d giorni (%d completi, %d parziali, %d senza dati).", len(days), full, part, miss),
+	pg.Blocks = append(pg.Blocks, section(g.tr("Totali dell'archivio"),
+		g.trf("Periodo coperto: %d giorni (%d completi, %d parziali, %d senza dati).", len(days), full, part, miss),
 		g.kpis(totals, nil, false)))
 
 	// Last seven days with data.
@@ -524,24 +557,23 @@ func (g *Generator) indexPage() (*Page, error) {
 		}
 		d, _ := period.Parse(period.Day, b.Key, g.loc())
 		labels[i] = g.title(d)
-		short[i] = d.Start.Format("02/01")
+		short[i] = d.Start.Format(g.l().dayMonthFmt)
 		links[i] = g.href("", d)
 		b.Start, b.End = d.Start.Unix(), d.End.Unix()
 	}
-	recent := section("Ultimi sette giorni", "Giorni con almeno una riga di log; clic su un giorno per il dettaglio.",
-		card("Traffico degli ultimi sette giorni disponibili", "", g.bucketChart("last7", "Ultimi sette giorni", "bar", "", last7, labels, short, links, vals, trafficSeries)))
+	recent := section(g.tr("Ultimi sette giorni"), g.tr("Giorni con almeno una riga di log; clic su un giorno per il dettaglio."),
+		card(g.tr("Traffico degli ultimi sette giorni disponibili"), "", g.bucketChart("last7", "Ultimi sette giorni", "bar", "", last7, labels, short, links, vals, trafficSeries)))
 
 	// Latest reports.
-	latest := &Table{ID: "latest", Head: []Th{{Text: "Report"}, {Text: "Periodo"}, {Text: "Copertura"}}}
-	names := map[period.Kind]string{period.Day: "Giornaliero", period.Week: "Settimanale", period.Month: "Mensile", period.Year: "Annuale"}
+	latest := &Table{ID: "latest", Head: []Th{{Text: g.tr("Report")}, {Text: g.tr("Periodo")}, {Text: g.tr("Copertura")}}}
 	for _, k := range period.Kinds {
 		if !g.enabled(k) {
 			continue
 		}
 		for i, p := 0, period.Of(k, g.lastDay.Start, g.loc()); i < 2 && g.inRange(p); i, p = i+1, p.Prev() {
 			b := coverageOf(ivs, p.Start.Unix(), p.End.Unix())
-			latest.Rows = append(latest.Rows, Tr{Class: b.Status, Cells: []Td{{Text: names[k]},
-				{Text: g.title(p), Href: g.href("", p)}, {Text: statusText(b), Badge: badgeClass(b.Status)}}})
+			latest.Rows = append(latest.Rows, Tr{Class: b.Status, Cells: []Td{{Text: g.tr(kindNames[k])},
+				{Text: g.title(p), Href: g.href("", p)}, {Text: g.statusText(b), Badge: badgeClass(b.Status)}}})
 		}
 	}
 	srcBlock, err := g.sourcesCard(imp)
@@ -558,10 +590,10 @@ func (g *Generator) indexPage() (*Page, error) {
 	}
 	pg.Blocks = append(pg.Blocks, tabs(
 		recent,
-		section("Archivio", "Mesi e anni disponibili; il numero indica i messaggi accettati.",
+		section(g.tr("Archivio"), g.tr("Mesi e anni disponibili; il numero indica i messaggi accettati."),
 			Block{Kind: "archive", Archive: arch}),
-		section("Report e acquisizioni", "", grid(card("Ultimi report", "", Block{Kind: "table", Table: latest}), srcBlock)),
-		section("Qualità dei dati", "", grid(an, g.coverageDaysCard(days))),
+		section(g.tr("Report e acquisizioni"), "", grid(card(g.tr("Ultimi report"), "", Block{Kind: "table", Table: latest}), srcBlock)),
+		section(g.tr("Qualità dei dati"), "", grid(an, g.coverageDaysCard(days))),
 	))
 	return pg, nil
 }
@@ -571,20 +603,20 @@ func (g *Generator) sourcesCard(imp query.ImportInfo) (Block, error) {
 	if err != nil {
 		return Block{}, err
 	}
-	tbl := &Table{ID: "sources", Sortable: true, Head: []Th{{Text: "Sorgente"}, {Text: "Righe", Num: true}, {Text: "Dal"}, {Text: "Al"}, {Text: "Stato"}}}
+	tbl := &Table{ID: "sources", Sortable: true, Head: []Th{{Text: g.tr("Sorgente")}, {Text: g.tr("Righe"), Num: true}, {Text: g.tr("Dal")}, {Text: g.tr("Al")}, {Text: g.tr("Stato")}}}
 	for _, s := range srcs {
-		st := "in crescita (letta fino alla fine)"
+		st := g.tr("in crescita (letta fino alla fine)")
 		if s.Compressed {
-			st = "compressa"
+			st = g.tr("compressa")
 			if s.Complete {
-				st += ", letta interamente"
+				st += g.tr(", letta interamente")
 			}
 		}
 		tbl.Rows = append(tbl.Rows, Tr{Cells: []Td{{Text: filepath.Base(s.Path), Title: s.Path, Key: true},
-			{Text: fmtInt(float64(s.Lines)), Num: true, Sort: fmt.Sprint(s.Lines)},
+			{Text: g.fmtInt(float64(s.Lines)), Num: true, Sort: fmt.Sprint(s.Lines)},
 			{Text: g.ts(s.FirstTS), Sort: fmt.Sprint(s.FirstTS)}, {Text: g.ts(s.LastTS), Sort: fmt.Sprint(s.LastTS)}, {Text: st}}})
 	}
-	return card("Stato delle acquisizioni", "Le sorgenti sono riconosciute dal contenuto: un file ruotato non viene reimportato.",
+	return card(g.tr("Stato delle acquisizioni"), g.tr("Le sorgenti sono riconosciute dal contenuto: un file ruotato non viene reimportato."),
 		Block{Kind: "table", Table: tbl}), nil
 }
 
@@ -595,13 +627,13 @@ func (g *Generator) archive(ivs []query.Interval) ([]ArchiveYear, error) {
 		if err != nil {
 			return nil, err
 		}
-		ay := ArchiveYear{Year: y.Key, Href: g.href("", y), Total: fmtInt(t.Get(ag.MAccepted)) + " messaggi"}
+		ay := ArchiveYear{Year: y.Key, Href: g.href("", y), Total: g.fmtInt(t.Get(ag.MAccepted)) + " " + g.tr("messaggi")}
 		byDay, err := g.Q.ByDay(y.Days()[0], y.Days()[len(y.Days())-1])
 		if err != nil {
 			return nil, err
 		}
 		for m := period.Of(period.Month, y.Start, g.loc()); m.Start.Before(y.End); m = m.Next() {
-			am := ArchiveMonth{Label: monthShort[m.Start.Month()-1]}
+			am := ArchiveMonth{Label: g.monthShort(m.Start.Month())}
 			if g.inRange(m) {
 				b := coverageOf(ivs, m.Start.Unix(), m.End.Unix())
 				am.Href, am.Status = g.href("", m), b.Status
@@ -609,9 +641,9 @@ func (g *Generator) archive(ivs []query.Interval) ([]ArchiveYear, error) {
 				for _, d := range m.Days() {
 					acc += byDay[d].Get(ag.MAccepted)
 				}
-				am.Value = fmtInt(acc)
+				am.Value = g.fmtInt(acc)
 				if b.Status == query.Missing {
-					am.Value = "n/d"
+					am.Value = g.tr("n/d")
 				}
 			}
 			ay.Months = append(ay.Months, am)
@@ -636,9 +668,9 @@ func (g *Generator) anomaliesCard() (Block, error) {
 	if err != nil {
 		return Block{}, err
 	}
-	tbl := &Table{ID: "anomalies", Head: []Th{{Text: "Condizione"}, {Text: "Conteggio", Num: true}}}
+	tbl := &Table{ID: "anomalies", Head: []Th{{Text: g.tr("Condizione")}, {Text: g.tr("Conteggio"), Num: true}}}
 	add := func(t string, v int64) {
-		tbl.Rows = append(tbl.Rows, Tr{Cells: []Td{{Text: t}, {Text: fmtInt(float64(v)), Num: true}}})
+		tbl.Rows = append(tbl.Rows, Tr{Cells: []Td{{Text: g.tr(t)}, {Text: g.fmtInt(float64(v)), Num: true}}})
 	}
 	add("Istanze di coda ancora aperte alla fine dei dati (messaggi in elaborazione)", an.OpenMessages)
 	add("Destinatari senza esito definitivo", an.PendingRcpts)
@@ -652,7 +684,7 @@ func (g *Generator) anomaliesCard() (Block, error) {
 		add(t, n)
 	}
 	add("Interruzioni nella copertura (buchi > soglia)", int64(len(an.Gaps)))
-	note := "Condizioni che limitano l'interpretazione; non sono attribuite ad alcun esito."
+	note := g.tr("Condizioni che limitano l'interpretazione; non sono attribuite ad alcun esito.")
 	if len(an.Gaps) > 0 {
 		var gs []string
 		for i, gp := range an.Gaps {
@@ -662,19 +694,19 @@ func (g *Generator) anomaliesCard() (Block, error) {
 			}
 			gs = append(gs, g.ts(gp.Start)+" → "+g.ts(gp.End))
 		}
-		note += " Buchi: " + strings.Join(gs, "; ") + "."
+		note += " " + g.trf("Buchi: %s.", strings.Join(gs, "; "))
 	}
-	return card("Anomalie e limiti", note, Block{Kind: "table", Table: tbl}), nil
+	return card(g.tr("Anomalie e limiti"), note, Block{Kind: "table", Table: tbl}), nil
 }
 
 func (g *Generator) coverageDaysCard(days []query.Bucket) Block {
-	tbl := &Table{ID: "daycoverage", Sortable: true, Filter: len(days) > 10, Head: []Th{{Text: "Giorno"}, {Text: "Copertura"}, {Text: "Osservato", Num: true}}}
+	tbl := &Table{ID: "daycoverage", Sortable: true, Filter: len(days) > 10, Head: []Th{{Text: g.tr("Giorno")}, {Text: g.tr("Copertura")}, {Text: g.tr("Osservato"), Num: true}}}
 	for i := len(days) - 1; i >= 0 && len(tbl.Rows) < 62; i-- {
 		b := days[i]
 		d, _ := period.Parse(period.Day, b.Key, g.loc())
 		tbl.Rows = append(tbl.Rows, Tr{Class: b.Status, Cells: []Td{{Text: g.title(d), Href: g.href("", d), Sort: b.Key},
-			{Text: statusText(b), Badge: badgeClass(b.Status)}, {Text: fmtPct(b.Fraction * 100), Num: true, Sort: fmt.Sprint(b.Fraction)}}})
+			{Text: g.statusText(b), Badge: badgeClass(b.Status)}, {Text: g.fmtPct(b.Fraction * 100), Num: true, Sort: fmt.Sprint(b.Fraction)}}})
 	}
-	return card("Giorni acquisiti", "Ultimi giorni dell'archivio. Un giorno è completo solo se tutte le sue ore sono state osservate.",
+	return card(g.tr("Giorni acquisiti"), g.tr("Ultimi giorni dell'archivio. Un giorno è completo solo se tutte le sue ore sono state osservate."),
 		Block{Kind: "table", Table: tbl})
 }
