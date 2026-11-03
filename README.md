@@ -74,9 +74,21 @@ maillog(.gz) ─► streaming parser ─► normalized events ─► Queue ID co
 The database is the source of the reports: logs can be rotated away without
 losing the history. The schema is versioned (`internal/store/migrations`).
 
+Schema 2 validates the SHA-256 of all checkpointed, decompressed bytes before
+resuming a source. This requires streaming those bytes again, including old
+compressed files. Different tails behind the same 4 KiB head are imported as
+separate sources. Legacy checkpoints longer than their verified head are
+replayed once as a new source; event deduplication preserves message counts,
+while source/import diagnostics include that replay. Keep original logs to
+recover events that older versions may have skipped. On the first import
+after upgrading, existing hosts are re-correlated once to recover
+notification links; raw events and source IDs are retained. Migration is
+transactional and checks foreign keys before commit.
+
 ## Building
 
-Go 1.25 or later is required. The binary is static (no cgo, pure-Go SQLite
+Go 1.25 or later is required; `make check` also uses Python 3 (standard library only)
+for the independent comparator tests. The binary is static (no cgo, pure-Go SQLite
 driver): it builds anywhere and runs on any Linux of the same architecture,
 Enterprise Linux 8/9/10 included.
 
@@ -267,14 +279,15 @@ The configuration file is given with `-config FILE` (default
 ### What `update` does
 
 1. Expands `input.paths` and sorts the files from the oldest (first timestamp).
-2. Recognizes each file by its content (hash of the first 4 KiB, decompressed).
-   A file already read in full is skipped; a file that grew or was rotated
-   resumes from the saved offset.
+2. Selects source candidates by the first 4 KiB (decompressed), then verifies
+   the SHA-256 of every checkpointed byte. An unchanged file is skipped;
+   a file that grew or was rotated resumes only if the consumed prefix matches.
 3. Stores events and checkpoint in the same transaction: an interruption
    leaves no intermediate state and the next run resumes at the right point.
 4. Correlates the new events starting from the state of the messages still in
-   the queue. If events older than those already correlated arrive, the host
-   is re-correlated from scratch.
+   the queue. If events preceding those already correlated in time/source/file order arrive,
+   including earlier events within the boundary second, the host is re-correlated
+   from scratch.
 5. Recomputes the aggregates of the affected days only and invalidates the
    pages that depend on them: day, week, month, year, the adjacent periods
    (links and comparisons) and the index.
@@ -333,7 +346,11 @@ embedded in each page: there is no `fetch()` and no CDN.
 * `privacy.anonymize_email` pseudonymizes the local part of addresses and the
   SASL users with an HMAC. The key is stored in the database, never in the
   reports. `privacy.anonymize_ip` truncates IPs to /24 or /48. Both options
-  are disabled by default.
+  are disabled by default. Changing either option rewrites every registered
+  archive page, including report types currently disabled, on the next
+  `generate` or `update` (also when generating one period). Interrupted changes
+  are retried on the next run. Files not registered in this database, copies
+  in another output directory and browser/proxy caches require separate handling.
 * Rejection and deferral reasons are normalized (addresses → `<addr>`,
   IPs → `[ip]`) to group them. The original text stays in the database only.
 * The web directory contains only HTML, CSS and JS. The database and the logs

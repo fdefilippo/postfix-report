@@ -77,19 +77,17 @@ def main():
         print("  -", d)
     mismatches += len(hdiff)
 
-    # Rankings: top 5 sender domains and client IPs per day (counts only).
+    # Compare complete (dimension, key, count) maps, including tied rankings.
     rdiff = 0
     for day in days:
-        for dim, key in (("sender_domain", "top_sender_domains"), ("client_ip", "top_client_ips")):
-            got = db.execute("SELECT key, value FROM agg_dim WHERE day=? AND dim=? ORDER BY value DESC, key LIMIT 5",
-                             (day, dim)).fetchall()
+        for dim, key in (("sender_domain", "sender_domains"), ("client_ip", "client_ips")):
+            got = dict(db.execute("SELECT key, value FROM agg_dim WHERE day=? AND dim=?", (day, dim)))
             exp = indep["days"][day][key]
-            if sorted(v for _, v in got) != sorted(v for _, v in exp) or {k for k, _ in got} != {k for k, _ in exp}:
-                # Ties at the 5th position may legitimately differ in key order.
-                if [v for _, v in got] != sorted((v for _, v in exp), reverse=True):
-                    rdiff += 1
-                    print(f"  - classifica {dim} {day}: programma {got} indipendente {exp}")
-    print(f"Classifiche (top 5 domini mittenti e IP sorgenti per giorno): {2 * len(days)} confronti, {rdiff} differenze.")
+            if got != exp:
+                rdiff += 1
+                print(f"  - classifica {dim} {day}: identità o conteggi differenti")
+    db.close()
+    print(f"Classifiche complete (domini mittenti e IP sorgenti per giorno): {2 * len(days)} confronti, {rdiff} differenze.")
     mismatches += rdiff
     print()
     print("ESITO:", "nessuna differenza" if mismatches == 0 else f"{mismatches} differenze")

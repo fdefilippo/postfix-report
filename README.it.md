@@ -69,9 +69,21 @@ maillog(.gz) ─► parser streaming ─► eventi normalizzati ─► correlazi
 Il database è la fonte dei report: i log possono essere ruotati via senza
 perdere lo storico. Lo schema è versionato (`internal/store/migrations`).
 
+Lo schema 2 verifica lo SHA-256 di tutti i byte già consumati e decompressi
+prima di riprendere una sorgente: tali byte vengono riletti, anche nei vecchi
+file gzip. Code diverse dopo i primi 4 KiB generano sorgenti distinte. I vecchi
+checkpoint più lunghi del prefisso verificabile vengono riletti una volta
+come nuova sorgente; la deduplicazione conserva i conteggi dei messaggi,
+mentre la diagnostica di sorgenti/importazioni include la rilettura. Conservare
+i log originali per recuperare eventuali eventi saltati dalle vecchie versioni.
+Alla prima importazione dopo l'upgrade gli host esistenti vengono ricorrelati
+una volta per recuperare i collegamenti delle notifiche. Eventi grezzi e ID
+delle sorgenti sono conservati; la migrazione è atomica e verifica le foreign key.
+
 ## Compilazione
 
-Serve Go 1.25 o successivo. Il binario è statico (senza cgo, con il driver
+Serve Go 1.25 o successivo; `make check` usa anche Python 3 (sola libreria standard)
+per i test del confronto indipendente. Il binario è statico (senza cgo, con il driver
 SQLite in Go puro): si compila ovunque e gira su qualsiasi Linux della stessa
 architettura, Enterprise Linux 8/9/10 compresi.
 
@@ -261,14 +273,14 @@ Il file di configurazione si indica con `-config FILE` (default
 ### Cosa fa `update`
 
 1. Espande `input.paths` e ordina i file dal più vecchio (primo timestamp).
-2. Riconosce ogni file dal contenuto (hash dei primi 4 KiB decompressi). Un
-   file già letto per intero viene saltato; un file cresciuto o ruotato
-   riprende dall'offset salvato.
+2. Seleziona le sorgenti candidate dai primi 4 KiB decompressi e verifica lo
+   SHA-256 di tutti i byte già consumati. Un file invariato viene saltato;
+   un file cresciuto o ruotato riprende soltanto se il prefisso coincide.
 3. Salva eventi e checkpoint nella stessa transazione: un'interruzione non
    lascia stati intermedi e l'esecuzione successiva riprende dal punto giusto.
 4. Correla i nuovi eventi partendo dallo stato dei messaggi ancora in coda.
-   Se arrivano eventi più vecchi di quelli già correlati, l'host viene
-   ricorrelato da zero.
+   Se arrivano eventi precedenti nell'ordine tempo/sorgente/posizione, anche
+   nello stesso secondo di confine, l'host viene ricorrelato da zero.
 5. Ricalcola gli aggregati dei soli giorni toccati e invalida le pagine che ne
    dipendono: giorno, settimana, mese, anno, i periodi adiacenti (link e
    confronti) e l'indice.
@@ -327,7 +339,11 @@ grafici sono incorporati in ogni pagina: non ci sono `fetch()` né CDN.
 * `privacy.anonymize_email` pseudonimizza la parte locale degli indirizzi e gli
   utenti SASL con HMAC. La chiave è nel database, mai nei report.
   `privacy.anonymize_ip` tronca gli IP a /24 o /48. Entrambe le opzioni sono
-  disattivate di default.
+  disattivate di default. Cambiarle rigenera tutte le pagine registrate nel
+  database, inclusi i tipi di report disabilitati, al successivo `generate` o
+  `update` (anche generando un solo periodo). Se la riscrittura si interrompe,
+  viene ritentata. File non registrati, copie in altre directory e cache di
+  browser/proxy richiedono gestione separata.
 * I motivi di rifiuto e differimento sono normalizzati (indirizzi → `<addr>`,
   IP → `[ip]`) per raggrupparli. Il testo originale resta solo nel database.
 * La directory web contiene solo HTML, CSS e JS. Database e log non vi sono

@@ -457,3 +457,36 @@ func (q *Q) GetAnomalies() (Anomalies, error) {
 	}
 	return an, nil
 }
+
+// AggregatedHourBuckets summarizes each local hour over all days in p. Each
+// hour has its own observed and possible seconds; DST repetition/absence is
+// included in that denominator, rather than copying whole-period coverage.
+func (q *Q) AggregatedHourBuckets(p period.Period) ([]Bucket, error) {
+	ivs, err := q.Intervals(p.Start.Unix(), p.End.Unix())
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Bucket, 24)
+	var total [24]int64
+	for h := range out {
+		out[h] = Bucket{Key: twoDigits(h), Label: twoDigits(h)}
+	}
+	for _, key := range p.Days() {
+		day, err := period.Parse(period.Day, key, q.Loc)
+		if err != nil {
+			return nil, err
+		}
+		for h := range out {
+			lo, hi := hourBounds(day, h, q.Loc)
+			total[h] += hi - lo
+			out[h].Covered += covered(ivs, lo, hi)
+		}
+	}
+	for h := range out {
+		out[h].Status, out[h].Fraction = status(out[h].Covered, total[h])
+		if total[h] == 0 {
+			out[h].Status = "nonexistent"
+		}
+	}
+	return out, nil
+}

@@ -14,7 +14,7 @@ License: BSD-3-clause and MIT and Apache-2.0
  modules: modernc.org/sqlite, modernc.org/libc, modernc.org/mathutil,
  modernc.org/memory, github.com/google/uuid, github.com/remyoudompheng/bigfft,
  golang.org/x/sys (BSD-3-clause); github.com/dustin/go-humanize (MIT);
- gopkg.in/yaml.v3 (MIT and Apache-2.0). Their license texts are under
+ go.yaml.in/yaml/v3 (MIT and Apache-2.0). Their license texts are under
  vendor/ in the source tarball attached to each release. On Debian systems
  the Apache License 2.0 is in "/usr/share/common-licenses/Apache-2.0".
 

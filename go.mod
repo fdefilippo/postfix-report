@@ -3,7 +3,7 @@ module github.com/fdefilippo/postfix-report
 go 1.25.0
 
 require (
-	gopkg.in/yaml.v3 v3.0.1
+	go.yaml.in/yaml/v3 v3.0.6
 	modernc.org/sqlite v1.59.0
 )
 

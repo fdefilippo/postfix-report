@@ -30,7 +30,7 @@ DEB_DOC     := $(DEB_ROOT)/usr/share/doc/$(BINARY)
 DEB_FILE    := dist/$(BINARY)_$(DEB_VERSION)_$(DEB_ARCH).deb
 DEB_DATE    := $(shell git log -1 --format=%cD 2>/dev/null || date -R)
 
-.PHONY: all build test test-short test-race bench vet fmt-check check validate demo install install-systemd uninstall dist rpm srpm deb release-check clean
+.PHONY: all build test test-short test-race test-validation bench vet fmt-check check validate demo install install-systemd uninstall dist rpm srpm deb release-check clean
 
 all: check build
 
@@ -58,7 +58,10 @@ vet:
 fmt-check:
 	@test -z "$$(gofmt -l .)" || { gofmt -l .; echo "run gofmt -w ."; exit 1; }
 
-check: fmt-check vet test
+test-validation:
+	PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s scripts -p 'test_*.py'
+
+check: fmt-check vet test test-validation
 
 # Independent validation on the reference log (see VALIDATION.md).
 validate: build

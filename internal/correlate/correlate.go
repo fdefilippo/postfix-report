@@ -49,7 +49,7 @@ type hostState struct {
 	host    string
 	open    map[string]*instance
 	cands   []*candidate
-	pending map[string]pendingNotif // new qid -> notification announced before the instance
+	pending map[string]pendingNotif // inst/qid -> notification announced before the instance
 	touched map[*instance]bool
 	stats   *Stats
 	lastTS  int64
@@ -71,17 +71,23 @@ func (hs *hostState) exec(query string, args ...any) (sql.Result, error) {
 }
 
 type pendingNotif struct {
+	inst     string
+	qid      string
 	typ      string
 	parentID int64
 	ts       int64
 }
 
-// Run correlates the events not yet processed. If events older than a host's
-// watermark were stored after it (backfill, or a previous run interrupted
+// Run correlates the events not yet processed. If events preceding a host's
+// watermark in canonical order were stored after it (backfill, or a run interrupted
 // between import and correlation), the host is re-correlated from scratch.
 // The condition is derived from the database, so it survives interruptions.
 func (c *Correlator) Run(ctx context.Context) (*Stats, error) {
 	st := &Stats{DirtyDays: map[string]bool{}}
+	upgrade, err := store.GetMeta(c.DB, "correlation_pending_upgrade")
+	if err != nil {
+		return nil, err
+	}
 	hosts, err := c.hosts()
 	if err != nil {
 		return nil, err
@@ -92,10 +98,15 @@ func (c *Correlator) Run(ctx context.Context) (*Stats, error) {
 			return nil, err
 		}
 		var older sql.NullInt64
-		if err := c.DB.QueryRow(`SELECT MIN(ts) FROM events WHERE id > ? AND host = ? AND ts < ?`, wmID, h, wmTS).Scan(&older); err != nil {
+		if err := c.DB.QueryRow(`SELECT MIN(e.ts) FROM events e JOIN sources s ON s.id=e.source_id
+        WHERE e.id > ? AND e.host = ? AND (e.ts < ? OR (e.ts = ? AND EXISTS (
+            SELECT 1 FROM events b JOIN sources bs ON bs.id=b.source_id
+            WHERE b.host=e.host AND b.ts=e.ts AND b.id <= ?
+            AND (s.first_ts,e.source_id,e.line_offset,e.id) < (bs.first_ts,b.source_id,b.line_offset,b.id)
+        )))`, wmID, h, wmTS, wmTS, wmID).Scan(&older); err != nil {
 			return nil, err
 		}
-		if wmTS > 0 && older.Valid {
+		if wmTS > 0 && (older.Valid || upgrade != "") {
 			c.Log.Warn("events older than the correlation watermark: re-correlating host",
 				"host", h, "oldest_new", time.Unix(older.Int64, 0), "watermark", time.Unix(wmTS, 0))
 			if err := c.reset(ctx, h, st); err != nil {
@@ -107,6 +118,9 @@ func (c *Correlator) Run(ctx context.Context) (*Stats, error) {
 		if err := c.runHost(ctx, h, wmTS, wmID, st); err != nil {
 			return nil, fmt.Errorf("host %s: %w", h, err)
 		}
+	}
+	if err := store.SetMeta(c.DB, "correlation_pending_upgrade", ""); err != nil {
+		return nil, err
 	}
 	return st, nil
 }
@@ -160,6 +174,7 @@ func (c *Correlator) watermark(host string) (int64, int64, error) {
 func (c *Correlator) reset(ctx context.Context, host string, st *Stats) error {
 	return c.DB.Tx(ctx, func(tx *sql.Tx) error {
 		stmts := []string{
+			`DELETE FROM pending_notifications WHERE host=?`,
 			`DELETE FROM deliveries WHERE instance_id IN (SELECT id FROM instances WHERE host=?)`,
 			`DELETE FROM recipients WHERE instance_id IN (SELECT id FROM instances WHERE host=?)`,
 			`DELETE FROM rejects WHERE host=?`,
@@ -237,6 +252,10 @@ func (c *Correlator) runHost(ctx context.Context, host string, wmTS, wmID int64,
 		if !more {
 			// End of data: close instances silent for longer than stale_after.
 			hs.expireStale(wmTS)
+		}
+		if err := hs.savePending(wmTS); err != nil {
+			tx.Rollback()
+			return err
 		}
 		if err := hs.flush(); err != nil {
 			tx.Rollback()
@@ -316,6 +335,9 @@ func (c *Correlator) fetch(host string, wmTS, wmID int64) ([]dbEvent, error) {
 func (hs *hostState) load(wmTS int64) error {
 	hs.open = map[string]*instance{}
 	db := hs.c.DB
+	if err := hs.loadPending(wmTS); err != nil {
+		return err
+	}
 	rows, err := db.Query(`SELECT `+instCols+` FROM instances WHERE host=? AND state='open'`, hs.host)
 	if err != nil {
 		return err
@@ -467,9 +489,9 @@ func (hs *hostState) apply(e *dbEvent) error {
 			if cur, err = hs.startInstance(e, OriginInternal); err != nil {
 				return err
 			}
-			if p, ok := hs.pending[e.QID]; ok && e.TS-p.ts <= 60 {
+			if p, ok := hs.pending[e.Inst+"/"+e.QID]; ok && e.TS >= p.ts && e.TS-p.ts <= 60 {
 				cur.origin, cur.notifType, cur.notifParentID = OriginNotification, p.typ, p.parentID
-				delete(hs.pending, e.QID)
+				delete(hs.pending, e.Inst+"/"+e.QID)
 			}
 		}
 		cur.messageID, cur.hasMessageID = e.Text, true
@@ -505,7 +527,7 @@ func (hs *hostState) apply(e *dbEvent) error {
 			child.origin, child.notifType, child.notifParentID = OriginNotification, e.Status, parent.id
 			hs.touch(child, e.TS)
 		} else {
-			hs.pending[e.NewQID] = pendingNotif{typ: e.Status, parentID: parent.id, ts: e.TS}
+			hs.pending[e.Inst+"/"+e.NewQID] = pendingNotif{inst: e.Inst, qid: e.NewQID, typ: e.Status, parentID: parent.id, ts: e.TS}
 		}
 	case logparse.KindRemoved:
 		in := hs.open[e.Inst+"/"+e.QID]
@@ -757,4 +779,36 @@ func (hs *hostState) flush() error {
 		in.dirty = false
 	}
 	return store.MarkDirtyDays(hs.tx, days)
+}
+
+func (hs *hostState) loadPending(wmTS int64) error {
+	rows, err := hs.c.DB.Query(`SELECT inst,qid,type,parent_id,ts FROM pending_notifications WHERE host=? AND ts>=?`, hs.host, wmTS-60)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var p pendingNotif
+		if err := rows.Scan(&p.inst, &p.qid, &p.typ, &p.parentID, &p.ts); err != nil {
+			return err
+		}
+		hs.pending[p.inst+"/"+p.qid] = p
+	}
+	return rows.Err()
+}
+
+func (hs *hostState) savePending(wmTS int64) error {
+	if _, err := hs.tx.Exec(`DELETE FROM pending_notifications WHERE host=?`, hs.host); err != nil {
+		return err
+	}
+	for key, p := range hs.pending {
+		if p.ts < wmTS-60 {
+			delete(hs.pending, key)
+			continue
+		}
+		if _, err := hs.tx.Exec(`INSERT INTO pending_notifications(host,inst,qid,type,parent_id,ts) VALUES(?,?,?,?,?,?)`, hs.host, p.inst, p.qid, p.typ, p.parentID, p.ts); err != nil {
+			return err
+		}
+	}
+	return nil
 }

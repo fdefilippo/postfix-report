@@ -119,3 +119,103 @@ func TestExpandPaths(t *testing.T) {
 		t.Errorf("%v", got)
 	}
 }
+
+func TestSharedHeadDivergenceAndCopies(t *testing.T) {
+	for _, ext := range []string{".log", ".gz"} {
+		t.Run(ext, func(t *testing.T) {
+			env := testutil.NewEnv(t)
+			im := importer(t, env)
+			head := strings.Repeat("Oct 12 09:00:00 mx1 postfix/anvil[1]: statistics: max cache size 1 at x\n", 80)
+			if len(head) < ingest.FingerprintLen {
+				t.Fatal("short test head")
+			}
+			mt := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
+			a, b := env.LogPath("a"+ext), env.LogPath("b"+ext)
+			testutil.WriteFile(t, a, head+line(1)+"\n", mt)
+			testutil.WriteFile(t, b, head+line(2)+"\n", mt)
+			r1, err := im.Import(context.Background(), 1, []string{a})
+			if err != nil || r1.Events != 1 {
+				t.Fatalf("first: %+v %v", r1, err)
+			}
+			r2, err := im.Import(context.Background(), 2, []string{b})
+			if err != nil || r2.Events != 1 || r2.Files[0].SourceID == r1.Files[0].SourceID {
+				t.Fatalf("divergence: %+v %v", r2, err)
+			}
+			r3, err := im.Import(context.Background(), 3, []string{a, b})
+			if err != nil || r3.Events != 0 || r3.Lines != 0 {
+				t.Fatalf("repeat: %+v %v", r3, err)
+			}
+		})
+	}
+}
+
+func TestRewrittenConsumedTailAndUnconsumedPartial(t *testing.T) {
+	env := testutil.NewEnv(t)
+	im := importer(t, env)
+	p := env.LogPath("mail")
+	head := strings.Repeat("Oct 12 09:00:00 mx1 postfix/anvil[1]: statistics: max cache size 1 at x\n", 80)
+	mt := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
+	testutil.WriteFile(t, p, head+line(1)+"\npartial", mt)
+	first, err := im.Import(context.Background(), 1, []string{p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Completing/replacing the unconsumed partial line preserves the checkpoint.
+	testutil.WriteFile(t, p, head+line(1)+"\n"+line(2)+"\n", mt)
+	second, err := im.Import(context.Background(), 2, []string{p})
+	if err != nil || second.Events != 1 || second.Files[0].SourceID != first.Files[0].SourceID {
+		t.Fatalf("partial: %+v %v", second, err)
+	}
+	// An edit of the consumed suffix beyond 4 KiB creates a branch.
+	testutil.WriteFile(t, p, head+line(1)+"\n"+line(3)+"\n", mt)
+	third, err := im.Import(context.Background(), 3, []string{p})
+	if err != nil || third.Events != 1 || third.Files[0].SourceID == first.Files[0].SourceID {
+		t.Fatalf("rewrite: %+v %v", third, err)
+	}
+}
+
+func TestGzipCopyThenAppend(t *testing.T) {
+	for _, ext := range []string{".log", ".gz"} {
+		t.Run(ext, func(t *testing.T) {
+			env := testutil.NewEnv(t)
+			im := importer(t, env)
+			mt := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
+			p := env.LogPath("a.gz")
+			testutil.WriteFile(t, p, line(1)+"\n", mt)
+			first, err := im.Import(context.Background(), 1, []string{p})
+			if err != nil {
+				t.Fatal(err)
+			}
+			p = env.LogPath("b" + ext)
+			testutil.WriteFile(t, p, line(1)+"\n"+line(2)+"\n", mt)
+			second, err := im.Import(context.Background(), 2, []string{p})
+			if err != nil || second.Events != 1 || second.Files[0].SourceID != first.Files[0].SourceID {
+				t.Fatalf("append after gzip: %+v %v", second, err)
+			}
+		})
+	}
+}
+
+func TestLegacyLongCheckpointReplaysOnce(t *testing.T) {
+	env := testutil.NewEnv(t)
+	im := importer(t, env)
+	p := env.LogPath("a.gz")
+	mt := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
+	head := strings.Repeat("Oct 12 09:00:00 mx1 postfix/anvil[1]: statistics: max cache size 1 at x\n", 80)
+	testutil.WriteFile(t, p, head+line(1)+"\n", mt)
+	first, err := im.Import(context.Background(), 1, []string{p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := im.DB.Exec(`UPDATE sources SET checkpoint_hash=''`); err != nil {
+		t.Fatal(err)
+	}
+	second, err := im.Import(context.Background(), 2, []string{p})
+	if err != nil || second.Events != 0 || second.Duplicates != 1 || second.Files[0].SourceID == first.Files[0].SourceID {
+		t.Fatalf("legacy replay: %+v %v", second, err)
+	}
+	third, err := im.Import(context.Background(), 3, []string{p})
+	if err != nil || third.Events != 0 || third.Lines != 0 {
+		t.Fatalf("legacy repeat: %+v %v", third, err)
+	}
+}

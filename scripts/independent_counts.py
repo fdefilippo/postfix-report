@@ -146,6 +146,8 @@ def main():
         d = sorted(delays[day])
         all_delays += d
         c["delay"] = delay_stats(d)
+        c["sender_domains"] = dict(sender_dom[day])
+        c["client_ips"] = dict(client_ip[day])
         c["top_sender_domains"] = sender_dom[day].most_common(5)
         c["top_client_ips"] = client_ip[day].most_common(5)
         out["days"][day] = c

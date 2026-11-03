@@ -125,3 +125,14 @@ riferimento.
 * Ora legale: nella notte del cambio all'ora solare l'ora 02 locale contiene
   due ore reali. Il report giornaliero mostra 24 intervalli locali e il giorno
   ha 25 ore reali (23 in primavera). Gli istanti sono memorizzati in UTC.
+
+## Copertura della distribuzione oraria settimanale
+
+Ogni fascia locale 00–23 somma i secondi osservati di quella stessa ora nei
+sette giorni della settimana. La frazione divide questa somma per i secondi
+possibili della fascia nell'intera settimana: normalmente 7 × 3600, 6 × 3600
+per l'ora assente al cambio primaverile, 8 × 3600 per l'ora ripetuta al cambio
+autunnale in Europe/Rome. La copertura di un'ora non deriva dalla frazione
+complessiva della settimana. Zero secondi osservati significa `missing` e
+valore grafico `null`; una fascia osservata senza eventi mostra zero. Le
+classificazioni `partial` e `complete` usano questo denominatore per fascia.

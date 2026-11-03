@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // Duration is a time.Duration that unmarshals from strings like "90s" or "1h".
@@ -174,10 +174,44 @@ func (c *Config) Finish() error {
 		add("logging.level: must be debug, info, warn or error")
 	}
 	if c.Output.Directory != "" && c.Database.Path != "" {
-		out, _ := filepath.Abs(c.Output.Directory)
-		db, _ := filepath.Abs(c.Database.Path)
-		if rel, err := filepath.Rel(out, db); err == nil && !strings.HasPrefix(rel, "..") {
-			add("database.path must not be inside output.directory (the database would be published)")
+		out, outErr := resolvedPath(c.Output.Directory)
+		db, dbErr := resolvedPath(c.Database.Path)
+		if outErr != nil {
+			add("output.directory: %v", outErr)
+		}
+		if dbErr != nil {
+			add("database.path: %v", dbErr)
+		}
+		if outErr == nil && dbErr == nil {
+			// Keep the lexical guard too: a public symlink can expose a DB
+			// whose ultimate target is outside the webroot. Check its resolved
+			// directory entry before following the final filename symlink.
+			rawOut, err := filepath.Abs(c.Output.Directory)
+			if err != nil {
+				add("output.directory: %v", err)
+			}
+			rawDB, err := filepath.Abs(c.Database.Path)
+			if err != nil {
+				add("database.path: %v", err)
+			}
+			parent, leaf := filepath.Split(c.Database.Path)
+			if parent == "" {
+				parent = "."
+			}
+			entryParent, err := resolvedPath(parent)
+			if err != nil {
+				add("database.path: %v", err)
+			}
+			inside := func(root, path string) bool {
+				rel, err := filepath.Rel(root, path)
+				return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+			}
+			if inside(rawOut, rawDB) || inside(out, rawDB) || inside(out, db) || inside(out, filepath.Join(entryParent, leaf)) {
+				add("database.path must not be inside output.directory (the database would be published)")
+			}
+			// Use the checked paths consistently: filepath.Join would otherwise
+			// clean symlink/.. lexically while SQLite follows filesystem order.
+			c.Output.Directory, c.Database.Path = out, db
 		}
 	}
 	if len(errs) > 0 {
@@ -204,4 +238,52 @@ func (c *Config) IsReinjectUID(uid int) bool {
 		}
 	}
 	return false
+}
+
+// resolvedPath resolves components in filesystem order, retaining missing
+// suffixes. In particular, symlink/.. must traverse the link before ..;
+// cleaning the path lexically first can hide a database inside the webroot.
+func resolvedPath(path string) (string, error) {
+	if !filepath.IsAbs(path) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		path = wd + string(filepath.Separator) + path
+	}
+	volume := filepath.VolumeName(path)
+	base := volume + string(filepath.Separator)
+	parts := strings.Split(path[len(volume):], string(filepath.Separator))
+	for i, part := range parts {
+		switch part {
+		case "", ".":
+			continue
+		case "..":
+			base = filepath.Dir(base)
+			continue
+		}
+		next := filepath.Join(base, part)
+		_, err := os.Lstat(next)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return "", err
+			}
+			base = next
+			continue
+		}
+		base, err = filepath.EvalSymlinks(next)
+		if err != nil {
+			return "", err
+		}
+		if i < len(parts)-1 {
+			st, err := os.Stat(base)
+			if err != nil {
+				return "", err
+			}
+			if !st.IsDir() {
+				return "", fmt.Errorf("path component %q is not a directory", next)
+			}
+		}
+	}
+	return base, nil
 }

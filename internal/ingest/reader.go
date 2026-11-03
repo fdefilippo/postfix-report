@@ -7,14 +7,16 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 )
 
-// FingerprintLen is the number of leading (decompressed) bytes that identify a source.
+// FingerprintLen is the head size used to select source candidates.
 const FingerprintLen = 4096
 
 // logFile is an opened log file, transparently decompressed.
@@ -27,6 +29,7 @@ type logFile struct {
 	size       int64
 	mtime      int64
 	gz         *gzip.Reader
+	digest     hash.Hash
 }
 
 func openLog(path string) (*logFile, error) {
@@ -84,30 +87,63 @@ func (lf *logFile) fingerprint(n int) string {
 	return hex.EncodeToString(s[:])
 }
 
-// skip discards n bytes of the decompressed stream (used to resume).
-func (lf *logFile) skip(n int64) error {
-	if n == 0 {
-		return nil
-	}
-	if !lf.compressed {
-		// Plain file: seek directly instead of reading.
-		if _, err := lf.f.Seek(n, io.SeekStart); err != nil {
-			return err
-		}
-		lf.r = bufio.NewReaderSize(lf.f, 1<<16)
-		return nil
-	}
-	m, err := io.CopyN(io.Discard, lf.r, n)
-	if err != nil {
-		return fmt.Errorf("%s: cannot resume at offset %d (read %d): %w", lf.path, n, m, err)
-	}
-	return nil
-}
-
 // firstLine returns the first complete line of the head ("" if none).
 func (lf *logFile) firstLine() string {
 	if i := bytes.IndexByte(lf.head, '\n'); i >= 0 {
 		return string(lf.head[:i])
 	}
 	return ""
+}
+
+// reset reopens the decompression stream on the same descriptor, so candidate
+// validation never switches to a different file after a rename.
+func (lf *logFile) reset() error {
+	if lf.gz != nil {
+		if err := lf.gz.Close(); err != nil {
+			return err
+		}
+	}
+	if _, err := lf.f.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	br := bufio.NewReaderSize(lf.f, 1<<16)
+	if lf.compressed {
+		gz, err := gzip.NewReader(br)
+		if err != nil {
+			return err
+		}
+		lf.gz, lf.r = gz, gz
+	} else {
+		lf.r = br
+	}
+	lf.digest = sha256.New()
+	return nil
+}
+
+// validateCheckpoint consumes and hashes exactly the checkpointed bytes.
+// A mismatch or truncation is a different source, never a resumable prefix.
+func (lf *logFile) validateCheckpoint(ctx context.Context, offset int64, digest string) (bool, error) {
+	if err := lf.reset(); err != nil {
+		return false, err
+	}
+	if _, err := io.CopyN(lf.digest, checkpointReader{ctx, lf.r}, offset); err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return false, nil
+		}
+		return false, err
+	}
+	return hex.EncodeToString(lf.digest.Sum(nil)) == digest, nil
+}
+
+// Hashing a large checkpoint checks cancellation between bounded reads.
+type checkpointReader struct {
+	ctx context.Context
+	r   io.Reader
+}
+
+func (r checkpointReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.r.Read(p)
 }

@@ -155,6 +155,9 @@ func (g *Generator) AllPages() []period.Period {
 // GenerateAll writes the assets, every period page and the index.
 func (g *Generator) GenerateAll(ctx context.Context) (*Result, error) {
 	res := &Result{}
+	if err := g.reconcilePrivacy(ctx, res); err != nil {
+		return res, err
+	}
 	if err := g.writeAssets(res); err != nil {
 		return res, err
 	}
@@ -185,6 +188,9 @@ func (g *Generator) GenerateAll(ctx context.Context) (*Result, error) {
 // GenerateOne writes a single period page (and the assets).
 func (g *Generator) GenerateOne(p period.Period) (*Result, error) {
 	res := &Result{}
+	if err := g.reconcilePrivacy(context.Background(), res); err != nil {
+		return res, err
+	}
 	if err := g.writeAssets(res); err != nil {
 		return res, err
 	}
@@ -205,6 +211,9 @@ func (g *Generator) GenerateOne(p period.Period) (*Result, error) {
 // changed or it was never generated.
 func (g *Generator) GenerateDirty(ctx context.Context) (*Result, error) {
 	res := &Result{}
+	if err := g.reconcilePrivacy(ctx, res); err != nil {
+		return res, err
+	}
 	if err := g.writeAssets(res); err != nil {
 		return res, err
 	}
@@ -709,4 +718,59 @@ func (g *Generator) coverageDaysCard(days []query.Bucket) Block {
 	}
 	return card(g.tr("Giorni acquisiti"), g.tr("Ultimi giorni dell'archivio. Un giorno è completo solo se tutte le sue ore sono state osservate."),
 		Block{Kind: "table", Table: tbl})
+}
+
+// reconcilePrivacy rewrites all registered pages, including disabled periods,
+// before acknowledging a privacy change. Keep the old marker on cancellation
+// or failure: a subsequent run retries the whole archive, with hash-based skips.
+// Files not owned by this database are never touched.
+func (g *Generator) reconcilePrivacy(ctx context.Context, res *Result) error {
+	key := fmt.Sprintf("%t/%t/%s", g.Cfg.Privacy.AnonymizeEmail, g.Cfg.Privacy.AnonymizeIP, g.Cfg.Output.Directory)
+	old, err := store.GetMeta(g.DB, "report_privacy")
+	if err != nil || old == key {
+		return err
+	}
+	// No previous marker and no anonymization: establish the baseline without
+	// rendering pages twice on the first generation or an ordinary upgrade.
+	if old == "" && !g.Cfg.Privacy.AnonymizeEmail && !g.Cfg.Privacy.AnonymizeIP {
+		return store.SetMeta(g.DB, "report_privacy", key)
+	}
+	rows, err := g.DB.Query(`SELECT path, kind, key FROM report_pages ORDER BY path`)
+	if err != nil {
+		return err
+	}
+	type pageRef struct{ path, kind, key string }
+	var pages []pageRef
+	for rows.Next() {
+		var p pageRef
+		if err := rows.Scan(&p.path, &p.kind, &p.key); err != nil {
+			rows.Close()
+			return err
+		}
+		pages = append(pages, p)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	for _, ref := range pages {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if ref.path == "index.html" && ref.kind == "index" && ref.key == "index" {
+			if err := g.writeIndex(res); err != nil {
+				return err
+			}
+			continue
+		}
+		p, err := period.Parse(period.Kind(ref.kind), ref.key, g.loc())
+		if err != nil || p.Path() != ref.path {
+			return fmt.Errorf("invalid managed report page %q", ref.path)
+		}
+		if err := g.writePeriod(p, res); err != nil {
+			return err
+		}
+	}
+	return store.SetMeta(g.DB, "report_privacy", key)
 }

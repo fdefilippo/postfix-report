@@ -17,3 +17,4 @@
 *.db.lock
 /bin/
 /dist/
+/review/

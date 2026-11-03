@@ -10,7 +10,9 @@ package ingest
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,17 +71,18 @@ type Result struct {
 }
 
 type sourceRow struct {
-	id         int64
-	offset     int64
-	lines      int64
-	firstTS    sql.NullInt64
-	lastTS     sql.NullInt64
-	clockState *logparse.ClockState
-	tail       tailState
-	complete   bool
-	compressed bool
-	fileSize   int64
-	fileMtime  int64
+	id             int64
+	checkpointHash string
+	offset         int64
+	lines          int64
+	firstTS        sql.NullInt64
+	lastTS         sql.NullInt64
+	clockState     *logparse.ClockState
+	tail           tailState
+	complete       bool
+	compressed     bool
+	fileSize       int64
+	fileMtime      int64
 }
 
 // tailWindow is how far back (seconds) occurrence counters are kept: lines
@@ -234,58 +237,107 @@ func (im *Importer) orderByFirstTimestamp(paths []string) []string {
 }
 
 // findSource locates the stored source for lf, creating it if new.
-func (im *Importer) findSource(lf *logFile) (*sourceRow, error) {
+func (im *Importer) findSource(ctx context.Context, lf *logFile) (*sourceRow, error) {
 	if len(lf.head) == 0 {
 		return nil, nil
 	}
 	n := len(lf.head)
-	fp := lf.fingerprint(n)
-	src, err := im.loadSource(`fingerprint=? AND fp_len=?`, fp, n)
-	if err != nil || src != nil {
-		return src, err
-	}
-	// A source first seen while shorter than FingerprintLen may have grown.
-	rows, err := im.DB.Query(`SELECT id, fp_len, fingerprint FROM sources WHERE fp_len < ?`, n)
+	rows, err := im.DB.Query(`SELECT id,fp_len,fingerprint FROM sources WHERE fp_len <= ? ORDER BY offset DESC,id`, n)
 	if err != nil {
 		return nil, err
 	}
-	var grownID int64
+	var candidates []int64
 	for rows.Next() {
 		var id int64
-		var l int
-		var f string
-		if err := rows.Scan(&id, &l, &f); err != nil {
+		var size int
+		var fp string
+		if err := rows.Scan(&id, &size, &fp); err != nil {
 			rows.Close()
 			return nil, err
 		}
-		if lf.fingerprint(l) == f {
-			grownID = id
-			break
+		if lf.fingerprint(size) == fp {
+			candidates = append(candidates, id)
 		}
 	}
+	err = rows.Err()
 	rows.Close()
-	if grownID != 0 {
-		if _, err := im.DB.Exec(`UPDATE sources SET fingerprint=?, fp_len=? WHERE id=?`, fp, n, grownID); err != nil {
-			return nil, err
-		}
-		return im.loadSource(`id=?`, grownID)
-	}
-	now := time.Now().Unix()
-	r, err := im.DB.Exec(`INSERT INTO sources(fingerprint, fp_len, path, compressed, created_at, updated_at) VALUES(?,?,?,?,?,?)`,
-		fp, n, lf.path, lf.compressed, now, now)
 	if err != nil {
 		return nil, err
 	}
-	id, _ := r.LastInsertId()
+	for _, id := range candidates {
+		src, err := im.loadSource(`id=?`, id)
+		if err != nil {
+			return nil, err
+		}
+		digest := src.checkpointHash
+		// A legacy checkpoint inside the matching head is fully verifiable.
+		// Longer legacy checkpoints must be replayed as a new branch once;
+		// event deduplication preserves already imported application data.
+		if digest == "" && src.offset <= int64(n) {
+			sum := sha256.Sum256(lf.head[:src.offset])
+			digest = hex.EncodeToString(sum[:])
+			// The candidate's head must cover the entire checkpoint.
+			var headLen int64
+			if err := im.DB.QueryRow(`SELECT fp_len FROM sources WHERE id=?`, id).Scan(&headLen); err != nil {
+				return nil, err
+			}
+			if src.offset > headLen {
+				continue
+			}
+		}
+		if digest == "" {
+			continue
+		}
+		match, err := lf.validateCheckpoint(ctx, src.offset, digest)
+		if err != nil {
+			return nil, err
+		}
+		if !match {
+			continue
+		}
+		// A complete gzip may be re-encoded with an appended tail, or later
+		// seen as a growing plain file. Only EOF proves it is still complete.
+		if src.complete {
+			if lf.compressed {
+				br := bufio.NewReader(lf.r)
+				_, err := br.Peek(1)
+				if err != nil && err != io.EOF {
+					return nil, err
+				}
+				src.complete = err == io.EOF
+				lf.r = br
+			} else {
+				src.complete = lf.size == src.offset
+			}
+		}
+		if _, err := im.DB.Exec(`UPDATE sources SET fingerprint=?,fp_len=?,checkpoint_hash=? WHERE id=?`, lf.fingerprint(n), n, digest, id); err != nil {
+			return nil, err
+		}
+		return src, nil
+	}
+	// A head is only a candidate index: diverging branches get distinct rows.
+	if err := lf.reset(); err != nil {
+		return nil, err
+	}
+	now := time.Now().Unix()
+	r, err := im.DB.Exec(`INSERT INTO sources(fingerprint,fp_len,path,compressed,checkpoint_hash,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`,
+		lf.fingerprint(n), n, lf.path, lf.compressed, hex.EncodeToString(lf.digest.Sum(nil)), now, now)
+	if err != nil {
+		return nil, err
+	}
+	id, err := r.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
 	return im.loadSource(`id=?`, id)
 }
 
 func (im *Importer) loadSource(where string, args ...any) (*sourceRow, error) {
 	s := &sourceRow{}
 	var clock, tail sql.NullString
-	err := im.DB.QueryRow(`SELECT id, offset, lines, first_ts, last_ts, clock_state, tail_state, complete, compressed, file_size, file_mtime
+	err := im.DB.QueryRow(`SELECT id, offset, lines, first_ts, last_ts, clock_state, tail_state, complete, compressed, file_size, file_mtime, checkpoint_hash
 		FROM sources WHERE `+where, args...).Scan(&s.id, &s.offset, &s.lines, &s.firstTS, &s.lastTS, &clock, &tail,
-		&s.complete, &s.compressed, &s.fileSize, &s.fileMtime)
+		&s.complete, &s.compressed, &s.fileSize, &s.fileMtime, &s.checkpointHash)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -348,7 +400,7 @@ func (im *Importer) importFile(ctx context.Context, importID int64, path string,
 		return fr, err
 	}
 	defer lf.Close()
-	src, err := im.findSource(lf)
+	src, err := im.findSource(ctx, lf)
 	if err != nil {
 		return fr, err
 	}
@@ -370,9 +422,6 @@ func (im *Importer) importFile(ctx context.Context, importID int64, path string,
 		return fr, nil
 	case !lf.compressed && lf.size < src.offset:
 		return fr, fmt.Errorf("file is shorter (%d) than the imported offset (%d): truncated or replaced", lf.size, src.offset)
-	}
-	if err := lf.skip(src.offset); err != nil {
-		return fr, err
 	}
 	fi := &fileImport{
 		im: im, src: src, lf: lf, fr: &fr, res: res,
@@ -429,6 +478,8 @@ func (fi *fileImport) run(ctx context.Context) error {
 			// the next run.
 			break
 		}
+		lfHash := fi.lf.digest
+		lfHash.Write([]byte(line))
 		lineOff := offset
 		offset += int64(len(line))
 		text := line
@@ -684,9 +735,9 @@ func (fi *fileImport) commit(offset int64, complete bool) error {
 	fi.src.firstTS, fi.src.lastTS = first, last
 	lines := fi.src.lines + fi.fr.Lines
 	if _, err := tx.Exec(`UPDATE sources SET offset=?, lines=?, first_ts=?, last_ts=?, clock_state=?, tail_state=?,
-		compressed=?, file_size=?, file_mtime=?, complete=?, updated_at=? WHERE id=?`,
+		compressed=?, file_size=?, file_mtime=?, complete=?, updated_at=?, checkpoint_hash=? WHERE id=?`,
 		offset, lines, first, last, string(cs), fi.src.tail.dump(), fi.lf.compressed, fi.lf.size, fi.lf.mtime,
-		complete, time.Now().Unix(), fi.src.id); err != nil {
+		complete, time.Now().Unix(), hex.EncodeToString(fi.lf.digest.Sum(nil)), fi.src.id); err != nil {
 		tx.Rollback()
 		return err
 	}

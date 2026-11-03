@@ -225,7 +225,11 @@ func (ag *Aggregator) Compare(day string) ([]string, error) {
 		}
 		stored[[2]any{h, m}] = v
 	}
+	err = rows.Err()
 	rows.Close()
+	if err != nil {
+		return nil, err
+	}
 	var diffs []string
 	for h, ms := range acc.hour {
 		for m, v := range ms {
@@ -239,17 +243,36 @@ func (ag *Aggregator) Compare(day string) ([]string, error) {
 	for k, v := range stored {
 		diffs = append(diffs, fmt.Sprintf("%s %02d %s: stored %v, recomputed 0", day, k[0], k[1], v))
 	}
-	var nDim, nStored int64
-	for _, m := range acc.dim {
-		for _, v := range m {
-			nDim += v
-		}
-	}
-	if err := ag.DB.QueryRow(`SELECT COALESCE(SUM(value),0) FROM agg_dim WHERE day=?`, day).Scan(&nStored); err != nil {
+	storedDim := map[[2]string]int64{}
+	rows, err = ag.DB.Query(`SELECT dim, key, value FROM agg_dim WHERE day=?`, day)
+	if err != nil {
 		return nil, err
 	}
-	if nDim != nStored {
-		diffs = append(diffs, fmt.Sprintf("%s rankings: stored total %d, recomputed %d", day, nStored, nDim))
+	for rows.Next() {
+		var dim, key string
+		var value int64
+		if err := rows.Scan(&dim, &key, &value); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		storedDim[[2]string{dim, key}] = value
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	for dim, counts := range acc.dim {
+		for key, value := range counts {
+			k := [2]string{dim, key}
+			if got, ok := storedDim[k]; !ok || got != value {
+				diffs = append(diffs, fmt.Sprintf("%s ranking %s %q: stored %d, recomputed %d", day, dim, key, got, value))
+			}
+			delete(storedDim, k)
+		}
+	}
+	for k, v := range storedDim {
+		diffs = append(diffs, fmt.Sprintf("%s ranking %s %q: unexpected stored row %d", day, k[0], k[1], v))
 	}
 	sort.Strings(diffs)
 	return diffs, nil

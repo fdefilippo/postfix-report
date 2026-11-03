@@ -946,7 +946,10 @@ func (g *Generator) weekBlocks(pg *Page, pd *periodData) error {
 	if err != nil {
 		return err
 	}
-	hb := aggregatedHourBuckets(pd)
+	hb, err := g.Q.AggregatedHourBuckets(pd.p)
+	if err != nil {
+		return err
+	}
 	hl := make([]string, 24)
 	for i := range hl {
 		hl[i] = twoDigit(i) + ":00"
@@ -976,31 +979,6 @@ func (g *Generator) weekBlocks(pg *Page, pd *periodData) error {
 		}, tail...)...),
 	)
 	return nil
-}
-
-// aggregatedHourBuckets returns 24 buckets whose status summarizes the
-// coverage of that hour across the days of the period.
-func aggregatedHourBuckets(pd *periodData) []query.Bucket {
-	out := make([]query.Bucket, 24)
-	for h := range out {
-		out[h] = query.Bucket{Key: twoDigit(h), Status: query.Complete, Fraction: 1}
-	}
-	anyObserved := false
-	for _, b := range pd.children {
-		if b.Status != query.Missing {
-			anyObserved = true
-		}
-	}
-	if !anyObserved {
-		for h := range out {
-			out[h].Status = query.Missing
-		}
-	} else if pd.cov.Status != query.Complete {
-		for h := range out {
-			out[h].Status, out[h].Fraction = query.Partial, pd.cov.Fraction
-		}
-	}
-	return out
 }
 
 func twoDigit(i int) string { return fmt.Sprintf("%02d", i) }

@@ -6,8 +6,8 @@
 // Events are processed per host in time order (ties: older source first,
 // then file position). The state that must
 // survive between runs (open queue instances, their recipients, reinjection
-// candidates) lives in the database, so correlation is incremental and also
-// works across files. If events older than the watermark arrive (backfill),
+// candidates, pending notification announcements) lives in the database, so correlation is incremental and also
+// works across files. If events preceding the watermark in canonical order arrive (backfill),
 // the host is re-correlated from scratch.
 package correlate
 

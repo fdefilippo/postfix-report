@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -95,21 +96,10 @@ func (db *DB) migrate() error {
 		if err != nil {
 			return err
 		}
-		tx, err := db.Begin()
-		if err != nil {
+		if err := db.applyMigration(v, name, string(body)); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(string(body)); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("%s: %w", name, err)
-		}
-		if _, err := tx.Exec(`INSERT INTO schema_migrations(version,name,applied_at) VALUES(?,?,?)`, v, name, time.Now().Unix()); err != nil {
-			tx.Rollback()
-			return err
-		}
-		if err := tx.Commit(); err != nil {
-			return err
-		}
+
 	}
 	return nil
 }
@@ -166,4 +156,42 @@ func NullStr(s string) any {
 		return nil
 	}
 	return s
+}
+
+// applyMigration keeps schema/data changes atomic. Migration 2 uses SQLite's
+// table-rebuild procedure, preserving referencing foreign keys and source IDs.
+func (db *DB) applyMigration(v int, name, body string) (err error) {
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if v == 2 {
+		if _, err = conn.ExecContext(ctx, `PRAGMA foreign_keys=OFF`); err != nil {
+			return err
+		}
+		defer func() { _, restore := conn.ExecContext(ctx, `PRAGMA foreign_keys=ON`); err = errors.Join(err, restore) }()
+	}
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, body); err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	if v == 2 {
+		var broken int
+		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_foreign_key_check`).Scan(&broken); err != nil {
+			return err
+		}
+		if broken != 0 {
+			return fmt.Errorf("%s: %d foreign key violations", name, broken)
+		}
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO schema_migrations(version,name,applied_at) VALUES(?,?,?)`, v, name, time.Now().Unix()); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
