@@ -14,4 +14,5 @@ Description: Postfix statistics with HTML, PDF and ODT reports
  or file://. Import is incremental and idempotent; log coverage is stated
  explicitly, so missing data is never shown as zero. A systemd timer
  updates the reports every hour. An optional web daemon exports complete PDF
- and editable ODT reports on demand; the same formats are available from the CLI.
+ and editable ODT reports on demand, including a complete archive with a linked
+ index and date/type selection. The same exports are available from the CLI.

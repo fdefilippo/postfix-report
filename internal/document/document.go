@@ -23,6 +23,8 @@ type Document struct {
 	Date                               time.Time
 	Blocks                             []Block
 	ContentsTitle, PageLabel           string
+	HeaderTitle                        string
+	CoverNote                          string
 	ContentsDepth                      int
 }
 
@@ -30,6 +32,7 @@ type Document struct {
 type Block struct {
 	Text, URL, Name string
 	Level           int
+	BreakBefore     bool
 	Headers         []string
 	Rows            [][]string
 	Image           []byte
@@ -86,18 +89,19 @@ func Render(ctx context.Context, d Document, format string) ([]byte, error) {
 		return nil, err
 	}
 	// Materialize images after the caller has released its database snapshot.
+	// Account for each chart immediately, rather than allocating all charts
+	// in a large archive before checking the content budget.
 	d.Blocks = append([]Block(nil), d.Blocks...)
+	textBytes := len(d.Title) + len(d.Subtitle) + len(d.HeaderTitle) + len(d.CoverNote)
 	for i := range d.Blocks {
-		if d.Blocks[i].Chart != nil {
-			image, err := ChartPNG(ctx, *d.Blocks[i].Chart)
+		b := &d.Blocks[i]
+		if b.Chart != nil {
+			image, err := ChartPNG(ctx, *b.Chart)
 			if err != nil {
 				return nil, err
 			}
-			d.Blocks[i].Image = image
+			b.Image = image
 		}
-	}
-	textBytes := len(d.Title) + len(d.Subtitle)
-	for _, b := range d.Blocks {
 		textBytes += len(b.Text) + len(b.Image)
 		if b.Level < 0 || b.Level > 3 || len(b.Headers) > 16 {
 			return nil, fmt.Errorf("invalid document block")

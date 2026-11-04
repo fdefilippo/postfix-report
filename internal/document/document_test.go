@@ -10,6 +10,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -67,6 +68,71 @@ func TestPaginationPreservesLongCellsAndContents(t *testing.T) {
 	}
 	if headers < 2 || strings.Count(digits.String(), "0123456789") < 1390 {
 		t.Fatal("long row was dropped or headers not repeated")
+	}
+}
+
+func TestSingleLineHeaderAndArchivePageBreaks(t *testing.T) {
+	d := Document{Title: "Settimana 2026-W45 (2/11 – 8/11/2026)", Subtitle: "Posta master.example.org", Date: time.Date(2026, 11, 4, 6, 44, 23, 0, time.UTC), ContentsTitle: "Indice", PageLabel: "Pagina"}
+	d.Heading(1, "Primo periodo")
+	d.Paragraph("Contenuto del primo periodo")
+	d.Blocks = append(d.Blocks, Block{Text: "Secondo periodo", Level: 1, BreakBefore: true})
+	l, err := paginateDocument(context.Background(), d, "Indice", "Pagina")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l.Header.Values[0] != d.Subtitle || l.Header.Values[1] != d.Title || l.Header.Values[2] != "2026-11-04 06:44:23 UTC" {
+		t.Fatalf("header order: %+v", l.Header)
+	}
+	if len(l.Contents) != 2 || l.Contents[1].Page <= l.Contents[0].Page {
+		t.Fatal("report page break lost")
+	}
+	m, err := newDocumentMetrics(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, value := range l.Header.Values {
+		if err := m.font(l.Header.Size, i == 0); err != nil {
+			t.Fatal(err)
+		}
+		width, err := m.pdf.MeasureTextWidth(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i == 2 && math.Abs(l.Header.X[i]+width-(pageWidth-pageLeft)) > .01 {
+			t.Fatal("date not right aligned")
+		}
+		if i < 2 && l.Header.X[i]+width+9 > l.Header.X[i+1] {
+			t.Fatal("overlapping header fields")
+		}
+	}
+	b, err := Render(context.Background(), d, "odt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	z, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := z.Open("styles.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	styles, err := io.ReadAll(f)
+	f.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, header, ok := strings.Cut(string(styles), "<style:header>")
+	if !ok {
+		t.Fatal("missing header")
+	}
+	header, _, _ = strings.Cut(header, "</style:header>")
+	if strings.Count(header, "<text:p ") != 1 || strings.Count(header, "<text:tab/>") != 2 || !strings.Contains(string(styles), `style:type="right"`) {
+		t.Fatalf("ODT header is not one aligned row: %s", header)
+	}
+	d.Subtitle = strings.Repeat("very-long-server-name.", 200)
+	if _, err := paginateDocument(context.Background(), d, "Indice", "Pagina"); err == nil {
+		t.Fatal("oversize header silently truncated")
 	}
 }
 

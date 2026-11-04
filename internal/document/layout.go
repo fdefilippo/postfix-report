@@ -58,6 +58,44 @@ type documentLayout struct {
 	Contents            []contentsEntry
 	TOCTitle, PageLabel string
 	ContentsPages       int
+	Header              headerRow
+}
+
+// headerRow is shared by PDF and ODT: server, period, right-aligned UTC date.
+type headerRow struct {
+	Values [3]string
+	X      [3]float64
+	Size   float64
+}
+
+func (m *documentMetrics) header(d Document) (headerRow, error) {
+	title := d.HeaderTitle
+	if title == "" {
+		title = d.Title
+	}
+	h := headerRow{Values: [3]string{d.Subtitle, title, d.Date.UTC().Format("2006-01-02 15:04:05 UTC")}}
+	for i := range h.Values {
+		h.Values[i] = strings.Join(strings.Fields(h.Values[i]), " ")
+	}
+	for size := 8.0; size >= 4; size -= 0.25 {
+		var widths [3]float64
+		for i, value := range h.Values {
+			if err := m.font(size, i == 0); err != nil {
+				return h, err
+			}
+			width, err := m.pdf.MeasureTextWidth(value)
+			if err != nil {
+				return h, err
+			}
+			widths[i] = width
+		}
+		h.X = [3]float64{pageLeft, (pageWidth - widths[1]) / 2, pageWidth - pageLeft - widths[2]}
+		if h.X[0]+widths[0]+10 <= h.X[1] && h.X[1]+widths[1]+10 <= h.X[2] {
+			h.Size = size
+			return h, nil
+		}
+	}
+	return h, fmt.Errorf("document header exceeds single-line capacity")
 }
 
 type documentMetrics struct {
@@ -157,6 +195,10 @@ func paginateDocument(ctx context.Context, d Document, tocTitle, pageLabel strin
 	if err != nil {
 		return l, err
 	}
+	l.Header, err = m.header(d)
+	if err != nil {
+		return l, err
+	}
 	y := bodyTop
 	newPage := func() { l.Pages = append(l.Pages, documentPage{}); y = bodyTop }
 	add := func(item documentItem) {
@@ -169,6 +211,9 @@ func paginateDocument(ctx context.Context, d Document, tocTitle, pageLabel strin
 		}
 		if err := ctx.Err(); err != nil {
 			return l, err
+		}
+		if b.BreakBefore && y > bodyTop {
+			newPage()
 		}
 		if len(b.Image) > 0 {
 			const height = 225.0

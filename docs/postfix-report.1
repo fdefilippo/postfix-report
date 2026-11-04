@@ -1,6 +1,6 @@
 .\" Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
 .\" SPDX-License-Identifier: GPL-3.0-or-later
-.TH POSTFIX-REPORT 1 "novembre 2026" "postfix-report 0.3" "Comandi utente"
+.TH POSTFIX-REPORT 1 "novembre 2026" "postfix-report 0.4" "Comandi utente"
 .SH NOME
 postfix-report \- statistiche di Postfix con storico SQLite e report HTML statici
 .SH SINTASSI
@@ -207,4 +207,18 @@ l'estensione corrispondente e non deve esistere; il file viene creato con modo 0
 Configurazione web: listen, prefix, public_origin, workers, queue_size,
 job_timeout, job_ttl. Le risposte non vengono salvate nella directory pubblica.
 I documenti comprendono tutte le sezioni e conservano la semantica dei dati mancanti.
+.PP
+.B postfix-report export --all --format pdf --output archive.pdf
+esporta un archivio unico con copertina e indice navigabile. Le opzioni
+--from YYYY-MM-DD e --to YYYY-MM-DD selezionano date locali inclusive;
+--kinds year,month,week,day seleziona i tipi (predefiniti: tutti quelli abilitati).
+Sono inclusi i periodi di calendario interi che intersecano le date scelte;
+i conteggi di periodi sovrapposti non devono essere sommati.
+--all non può essere combinato con --date, --week, --month o --year.
+.PP
+Nell'indice web compare "Esporta archivio completo", con selezione date e tipi,
+anteprima del numero di report e pulsanti PDF/ODT. Massimo 200 report per file,
+2000 pagine e 32 MiB; oltre i limiti l'operazione fallisce senza troncamenti.
+L'header dei documenti presenta su una sola riga nome server, periodo e data UTC
+allineata a destra. La generazione legge tutti i periodi dallo stesso snapshot.
 Per dettagli sui limiti e sull'installazione consultare EXPORTS.md.

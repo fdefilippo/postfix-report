@@ -44,7 +44,7 @@ func (c *cli) serveCmd(ctx context.Context, path string, overrides map[string]st
 	return exitOK
 }
 
-func (c *cli) exportCmd(ctx context.Context, s *selection, format, output string) int {
+func (c *cli) exportCmd(ctx context.Context, s *selection, archive *exporter.ArchiveSelection, format, output string) int {
 	if (format != "pdf" && format != "odt") || output == "" || filepath.Ext(output) != "."+format {
 		fmt.Fprintln(c.stderr, "export: specificare --format pdf|odt e --output FILE con estensione corrispondente")
 		return exitUsage
@@ -62,8 +62,14 @@ func (c *cli) exportCmd(ctx context.Context, s *selection, format, output string
 			n++
 		}
 	}
-	if n != 1 {
-		fmt.Fprintln(c.stderr, "export: specificare un solo periodo")
+	if archive != nil {
+		if err := archive.Validate(c.cfg); err != nil {
+			fmt.Fprintln(c.stderr, err)
+			return exitUsage
+		}
+	}
+	if (archive == nil && n != 1) || (archive != nil && n != 0) {
+		fmt.Fprintln(c.stderr, "export: specificare un solo periodo oppure --all")
 		return exitUsage
 	}
 	if _, err := os.Lstat(output); err == nil {
@@ -75,7 +81,13 @@ func (c *cli) exportCmd(ctx context.Context, s *selection, format, output string
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
-	b, err := exporter.Render(ctx, c.cfg, p, format, version)
+	var b []byte
+	var err error
+	if archive != nil {
+		b, err = exporter.RenderArchive(ctx, c.cfg, *archive, format, version)
+	} else {
+		b, err = exporter.Render(ctx, c.cfg, p, format, version)
+	}
 	if err == nil {
 		err = writeNewDocument(output, b)
 	}

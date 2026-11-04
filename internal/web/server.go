@@ -45,9 +45,10 @@ const maxJobs = 32
 type LoadConfig func() (*config.Config, error)
 
 type request struct {
-	Kind   period.Kind `json:"kind"`
-	Key    string      `json:"key"`
-	Format string      `json:"format"`
+	Kind    period.Kind                `json:"kind"`
+	Key     string                     `json:"key"`
+	Format  string                     `json:"format"`
+	Archive *exporter.ArchiveSelection `json:"archive,omitempty"`
 }
 type job struct {
 	ID            string `json:"id"`
@@ -62,20 +63,21 @@ type job struct {
 
 // Server owns workers and results. Call Close before discarding it.
 type Server struct {
-	base    *config.Config
-	load    LoadConfig
-	version string
-	log     *slog.Logger
-	ctx     context.Context
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	queue   chan *job
-	mu      sync.Mutex
-	jobs    map[string]*job
-	stored  int
-	secret  [32]byte
-	root    *os.Root
-	render  func(context.Context, *config.Config, period.Period, string, string) ([]byte, error)
+	base          *config.Config
+	load          LoadConfig
+	version       string
+	log           *slog.Logger
+	ctx           context.Context
+	cancel        context.CancelFunc
+	wg            sync.WaitGroup
+	queue         chan *job
+	mu            sync.Mutex
+	jobs          map[string]*job
+	stored        int
+	secret        [32]byte
+	root          *os.Root
+	render        func(context.Context, *config.Config, period.Period, string, string) ([]byte, error)
+	renderArchive func(context.Context, *config.Config, exporter.ArchiveSelection, string, string) ([]byte, error)
 }
 
 // New starts a finite worker pool. It never migrates or creates the database.
@@ -95,7 +97,7 @@ func New(ctx context.Context, cfg *config.Config, load LoadConfig, version strin
 		return nil, err
 	}
 	ctx, stop := context.WithCancel(ctx)
-	s := &Server{base: cfg, load: load, version: version, log: log, ctx: ctx, cancel: stop, queue: make(chan *job, cfg.Web.QueueSize), jobs: make(map[string]*job), root: root, render: exporter.Render}
+	s := &Server{base: cfg, load: load, version: version, log: log, ctx: ctx, cancel: stop, queue: make(chan *job, cfg.Web.QueueSize), jobs: make(map[string]*job), root: root, render: exporter.Render, renderArchive: exporter.RenderArchive}
 	if _, err = rand.Read(s.secret[:]); err != nil {
 		root.Close()
 		stop()
@@ -199,6 +201,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.session(w, r)
 		return
 	}
+	if rel == "api/archives/preview" && r.Method == http.MethodPost {
+		s.previewArchive(w, r)
+		return
+	}
 	if rel == "api/exports" && r.Method == http.MethodPost {
 		s.create(w, r)
 		return
@@ -281,15 +287,15 @@ func (s *Server) session(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"csrf": s.mac("csrf:" + c)})
 }
 
-func (s *Server) create(w http.ResponseWriter, r *http.Request) {
+func (s *Server) decodeExportRequest(w http.ResponseWriter, r *http.Request) (*config.Config, *request) {
 	cookie := s.cookie(r)
 	if cookie == "" || r.Header.Get("Origin") != s.origin(r) || !hmac.Equal([]byte(r.Header.Get("X-CSRF-Token")), []byte(s.mac("csrf:"+cookie))) {
 		http.Error(w, "invalid export session or CSRF token", http.StatusForbidden)
-		return
+		return nil, nil
 	}
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "expected application/json", http.StatusUnsupportedMediaType)
-		return
+		return nil, nil
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 1024)
 	dec := json.NewDecoder(r.Body)
@@ -297,23 +303,39 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 	var req request
 	if err := dec.Decode(&req); err != nil {
 		http.Error(w, "invalid export request", http.StatusBadRequest)
-		return
+		return nil, nil
 	}
 	var extra any
 	if dec.Decode(&extra) != io.EOF {
 		http.Error(w, "invalid export request", http.StatusBadRequest)
-		return
+		return nil, nil
 	}
 	cfg, err := s.current()
 	if err != nil {
 		http.Error(w, "configuration changed or unavailable", http.StatusServiceUnavailable)
-		return
+		return nil, nil
 	}
-	if _, err := period.Parse(req.Kind, req.Key, cfg.Location); err != nil || (req.Format != "pdf" && req.Format != "odt") {
+	valid := req.Format == "pdf" || req.Format == "odt"
+	if req.Archive != nil {
+		valid = valid && req.Kind == "" && req.Key == "" && req.Archive.Validate(cfg) == nil
+	} else {
+		_, err = period.Parse(req.Kind, req.Key, cfg.Location)
+		valid = valid && err == nil
+	}
+	if !valid {
 		http.Error(w, "invalid period or format", http.StatusBadRequest)
+		return nil, nil
+	}
+	return cfg, &req
+}
+
+func (s *Server) create(w http.ResponseWriter, r *http.Request) {
+	cfg, req := s.decodeExportRequest(w, r)
+	if req == nil {
 		return
 	}
-	j := &job{ID: randomID(), State: "queued", owner: s.owner(r, cookie), policy: exporter.PolicyKey(cfg), req: req, cfg: cfg, created: time.Now()}
+	cookie := s.cookie(r)
+	j := &job{ID: randomID(), State: "queued", owner: s.owner(r, cookie), policy: exporter.PolicyKey(cfg), req: *req, cfg: cfg, created: time.Now()}
 	s.mu.Lock()
 	if len(s.jobs) >= maxJobs {
 		s.mu.Unlock()
@@ -375,6 +397,12 @@ func (s *Server) result(w http.ResponseWriter, r *http.Request, tail string) {
 		return
 	}
 	data, format, name := j.data, j.req.Format, string(j.req.Kind)+"-"+j.req.Key+"."+j.req.Format
+	if j.req.Archive != nil {
+		name = "archive-all." + format
+		if j.req.Archive.From != "" {
+			name = "archive-" + j.req.Archive.From + "-" + j.req.Archive.To + "." + format
+		}
+	}
 	s.mu.Unlock()
 	ctype := "application/pdf"
 	if format == "odt" {
@@ -405,10 +433,16 @@ func (s *Server) worker() {
 			j.State = "running"
 			s.mu.Unlock()
 			ctx, cancel := context.WithTimeout(s.ctx, s.base.Web.JobTimeout.Duration)
-			p, err := period.Parse(j.req.Kind, j.req.Key, j.cfg.Location)
 			var b []byte
-			if err == nil {
-				b, err = s.render(ctx, j.cfg, p, j.req.Format, s.version)
+			var err error
+			if j.req.Archive != nil {
+				b, err = s.renderArchive(ctx, j.cfg, *j.req.Archive, j.req.Format, s.version)
+			} else {
+				var p period.Period
+				p, err = period.Parse(j.req.Kind, j.req.Key, j.cfg.Location)
+				if err == nil {
+					b, err = s.render(ctx, j.cfg, p, j.req.Format, s.version)
+				}
 			}
 			if err == nil {
 				err = ctx.Err()
@@ -429,6 +463,9 @@ func (s *Server) worker() {
 			if err != nil {
 				j.State = "failed"
 				j.Error = "Esportazione non riuscita. Riprovare dopo l’aggiornamento o consultare il log. / Export failed. Retry after updating or check the log."
+				if j.req.Archive != nil {
+					j.Error = "Archivio non esportabile: verificare i dati o ridurre intervallo e tipi di report (massimo 200 report, 2000 pagine, 32 MiB). Consultare il log. / Archive export failed: check data or select fewer periods (maximum 200 reports, 2000 pages, 32 MiB). Check the log."
+				}
 				s.log.Warn("export failed", "kind", j.req.Kind, "period", j.req.Key, "error", err)
 			} else {
 				j.State = "ready"
@@ -550,6 +587,9 @@ func (s *Server) static(w http.ResponseWriter, r *http.Request, rel string) {
 		}
 		fragment := fmt.Sprintf(`<aside class="card noprint" id="document-export" data-kind="%s" data-key="%s" data-api="%sapi/" data-lang="%s"><strong>%s</strong> <button type="button" data-export="pdf">PDF</button> <button type="button" data-export="odt">ODT</button><span role="status" aria-live="polite"></span></aside><script src="%sapi/export.js" defer></script>`, selected.Kind, selected.Key, cfg.Web.Prefix, cfg.Output.Language, label, cfg.Web.Prefix)
 		b = []byte(strings.Replace(string(b), "</main>", fragment+"</main>", 1))
+	}
+	if rel == "index.html" {
+		b = []byte(strings.Replace(string(b), "<main>", "<main>"+archivePanel(cfg), 1))
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if r.Method != http.MethodHead {

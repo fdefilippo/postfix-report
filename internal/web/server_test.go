@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/fdefilippo/postfix-report/internal/config"
+	"github.com/fdefilippo/postfix-report/internal/exporter"
 	"github.com/fdefilippo/postfix-report/internal/norm"
 	"github.com/fdefilippo/postfix-report/internal/period"
 	"github.com/fdefilippo/postfix-report/internal/query"
@@ -74,7 +75,9 @@ func (b *browser) start(format string) (int, string) {
 }
 func (b *browser) ready(id string) {
 	b.t.Helper()
-	deadline := time.Now().Add(20 * time.Second)
+	// Archive jobs render several periods. Match the service's two-minute
+	// default budget, including under race instrumentation and CPU contention.
+	deadline := time.Now().Add(2*time.Minute + 5*time.Second)
 	for time.Now().Before(deadline) {
 		code, data := b.call("GET", "/api/exports/"+id, nil)
 		if code != 200 {
@@ -152,6 +155,86 @@ func TestDownloadContainersSessionOwnershipAndPrefix(t *testing.T) {
 		if code != 200 || !bytes.HasPrefix(data, []byte(signature)) {
 			t.Fatalf("download %s %d", format, code)
 		}
+	}
+}
+
+func TestArchivePreviewValidationAndDownload(t *testing.T) {
+	_, _, ts, _ := serverFixture(t, "/postfix-report/")
+	b := newBrowser(t, ts, "/postfix-report/")
+	other := newBrowser(t, ts, "/postfix-report/")
+	code, html := b.call("GET", "/index.html", nil)
+	if code != 200 || !bytes.Contains(html, []byte(`data-archive="true"`)) || !bytes.Contains(html, []byte("Esporta archivio completo")) {
+		t.Fatal("archive UI absent from index", code)
+	}
+	for _, format := range []string{"pdf", "odt"} {
+		body, _ := json.Marshal(request{Archive: &exporter.ArchiveSelection{}, Format: format})
+		code, data := b.call("POST", "/api/archives/preview", body)
+		var plan exporter.ArchivePlan
+		if err := json.Unmarshal(data, &plan); err != nil || code != 200 || plan.Total != 4 || !plan.Allowed {
+			t.Fatalf("preview %d %+v %s", code, plan, data)
+		}
+		code, data = b.call("POST", "/api/exports", body)
+		var job map[string]string
+		if err := json.Unmarshal(data, &job); err != nil || code != 202 {
+			t.Fatal("archive start", code, string(data))
+		}
+		id := job["id"]
+		b.ready(id)
+		code, data = b.call("GET", "/api/exports/"+id+"/download", nil)
+		signature := "%PDF-"
+		if format == "odt" {
+			signature = "PK"
+		}
+		if code != 200 || !bytes.HasPrefix(data, []byte(signature)) {
+			t.Fatal("archive download", format, code)
+		}
+		if code, _ := other.call("GET", "/api/exports/"+id+"/download", nil); code != 404 {
+			t.Fatal("archive exposed to another session")
+		}
+	}
+	for _, body := range []string{
+		`{"archive":{"kinds":[]},"format":"pdf"}`,
+		`{"archive":{"kinds":["day","day"]},"format":"pdf"}`,
+		`{"archive":{"from":"2026-10-25"},"format":"pdf"}`,
+		`{"archive":{},"kind":"day","key":"2026-10-25","format":"pdf"}`,
+		`{"archive":{"unknown":true},"format":"pdf"}`,
+	} {
+		for _, route := range []string{"/api/exports", "/api/archives/preview"} {
+			if code, _ := b.call("POST", route, []byte(body)); code != 400 {
+				t.Errorf("invalid archive accepted %d: %s", code, body)
+			}
+		}
+	}
+	b.csrf = "invalid"
+	if code, _ := b.call("POST", "/api/archives/preview", []byte(`{"archive":{},"format":"pdf"}`)); code != 403 {
+		t.Fatal("preview bypassed CSRF")
+	}
+}
+
+func TestArchiveWorkerCancellation(t *testing.T) {
+	_, s, ts, _ := serverFixture(t, "/")
+	started := make(chan struct{})
+	s.renderArchive = func(ctx context.Context, _ *config.Config, _ exporter.ArchiveSelection, _, _ string) ([]byte, error) {
+		close(started)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	b := newBrowser(t, ts, "/")
+	if code, _ := b.call("POST", "/api/exports", []byte(`{"archive":{},"format":"pdf"}`)); code != 202 {
+		t.Fatal(code)
+	}
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("archive job did not start")
+	}
+	s.cancel()
+	done := make(chan struct{})
+	go func() { s.wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("archive worker survived shutdown")
 	}
 }
 
@@ -265,6 +348,12 @@ func TestStaticFilesCannotEscapeOrExposeDatabase(t *testing.T) {
 // Exercise the actual browser script under the production CSP, including cookie,
 // CSRF, asynchronous completion and its automatic attachment request.
 func TestBrowserExport(t *testing.T) {
+	for _, path := range []string{"/daily/2026-10-25.html", "/index.html"} {
+		t.Run(path, func(t *testing.T) { testBrowserExport(t, path) })
+	}
+}
+
+func testBrowserExport(t *testing.T, pagePath string) {
 	if testing.Short() {
 		t.Skip("headless browser skipped in short mode")
 	}
@@ -289,14 +378,17 @@ func TestBrowserExport(t *testing.T) {
 		}
 		if r.URL.Path == "/browser-test.js" {
 			w.Header().Set("Content-Type", "application/javascript")
-			io.WriteString(w, `document.querySelector('[data-export="pdf"]').click();
+			io.WriteString(w, `function begin(){
+var button = document.querySelector('[data-export="pdf"]');
+if(!button || button.disabled){setTimeout(begin,50);return;}
+button.click();
 fetch('/browser-wait').then(function(r){ if(!r.ok) throw new Error('job failed');
 function complete(){
  if(!document.querySelector('#document-export [role=status] a')) { setTimeout(complete,100); return; }
  document.body.setAttribute('data-export-test','ready');
  fetch('/browser-done').then(function(r){if(!r.ok) setTimeout(complete,100);});
 }
-complete(); });`)
+complete(); }); } begin();`)
 			return
 		}
 		if r.URL.Path == "/browser-wait" {
@@ -367,7 +459,7 @@ complete(); });`)
 		case <-ctx.Done():
 		}
 	}()
-	cmd := exec.CommandContext(ctx, chrome, "--headless=new", "--no-sandbox", "--disable-gpu", "--no-proxy-server", "--disable-background-networking", "--disable-dev-shm-usage", "--user-data-dir="+t.TempDir(), "--virtual-time-budget=5000", "--dump-dom", ts.URL+"/daily/2026-10-25.html")
+	cmd := exec.CommandContext(ctx, chrome, "--headless=new", "--no-sandbox", "--disable-gpu", "--no-proxy-server", "--disable-background-networking", "--disable-dev-shm-usage", "--user-data-dir="+t.TempDir(), "--virtual-time-budget=5000", "--dump-dom", ts.URL+pagePath)
 	cmd.WaitDelay = 2 * time.Second
 	out, err := cmd.CombinedOutput()
 	select {

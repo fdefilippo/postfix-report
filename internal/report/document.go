@@ -125,3 +125,51 @@ func (g *Generator) Document(ctx context.Context, p period.Period) (document.Doc
 	d.Paragraph("postfix-report " + g.Version + " · Copyright © 2026 Francesco Defilippo · GNU GPLv3 or later")
 	return d, nil
 }
+
+// ArchiveDocument composes whole reports without summing overlapping periods.
+// All queries use the caller's snapshot; chart rendering happens afterwards.
+func (g *Generator) ArchiveDocument(ctx context.Context, periods []period.Period, from, to string) (document.Document, error) {
+	d := document.Document{Title: g.tr("Archivio completo"), Subtitle: g.Cfg.Output.Title,
+		Language: g.Cfg.Output.Language, Date: g.Now(), Creator: "postfix-report " + g.Version,
+		ContentsTitle: g.tr("Indice"), PageLabel: g.tr("Pagina"), ContentsDepth: 2}
+	d.HeaderTitle = d.Title + " · " + from + " — " + to
+	d.CoverNote = g.trf("Intervallo selezionato: %s — %s", from, to)
+	d.Paragraph(g.trf("Intervallo selezionato: %s — %s", from, to))
+	d.Paragraph(g.trf("Report inclusi: %d", len(periods)))
+	d.Paragraph(g.tr("Sono inclusi i periodi interi che intersecano l'intervallo selezionato. I conteggi di periodi sovrapposti non devono essere sommati."))
+	labels := map[period.Kind]string{period.Year: g.tr("Report annuali"), period.Month: g.tr("Report mensili"), period.Week: g.tr("Report settimanali"), period.Day: g.tr("Report giornalieri")}
+	var previous period.Kind
+	contentBytes := 0
+	for _, p := range periods {
+		if err := ctx.Err(); err != nil {
+			return document.Document{}, err
+		}
+		part, err := g.Document(ctx, p)
+		if err != nil {
+			return document.Document{}, err
+		}
+		// Bound the retained presentation model, including chart series, before
+		// allocating PNGs. No partial document is returned when the budget fails.
+		encoded, err := json.Marshal(part.Blocks)
+		if err != nil {
+			return document.Document{}, err
+		}
+		contentBytes += len(encoded)
+		if contentBytes > 32<<20 {
+			return document.Document{}, fmt.Errorf("archive exceeds 32 MiB preparation limit; select fewer periods")
+		}
+		newGroup := previous != p.Kind
+		if newGroup {
+			d.Blocks = append(d.Blocks, document.Block{Text: labels[p.Kind], Level: 1, BreakBefore: true})
+		}
+		d.Blocks = append(d.Blocks, document.Block{Text: part.Title + " · " + p.Key, Level: 2, BreakBefore: !newGroup})
+		for _, b := range part.Blocks {
+			if b.Level > 0 {
+				b.Level = 3
+			}
+			d.Blocks = append(d.Blocks, b)
+		}
+		previous = p.Kind
+	}
+	return d, nil
+}

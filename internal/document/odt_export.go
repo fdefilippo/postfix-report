@@ -93,6 +93,10 @@ func writeODT(ctx context.Context, l documentLayout) ([]byte, error) {
 	}
 	content.WriteString(`<style:style style:name="Grid" style:family="table"><style:table-properties table:align="left" style:width="511.28pt" fo:margin="0pt"/></style:style><style:style style:name="Cell" style:family="table-cell"><style:table-cell-properties fo:padding="0pt" fo:padding-left="4pt" fo:padding-right="4pt" fo:border-bottom="0.4pt solid #c8cfda"/></style:style><style:style style:name="HeaderCell" style:family="table-cell" style:parent-style-name="Cell"><style:table-cell-properties fo:background-color="#e9eef5"/></style:style></office:automatic-styles><office:body><office:text>`)
 	content.WriteString(`<text:p text:style-name="CoverTitle">` + odtEscape(l.Document.Title) + `</text:p><text:p text:style-name="CoverDomain">` + odtEscape(l.Document.Subtitle) + `</text:p>`)
+	if l.Document.CoverNote != "" {
+		content.WriteString(`<text:p text:style-name="CoverDetails">` + odtEscape(l.Document.CoverNote) + `</text:p>`)
+	}
+	content.WriteString(`<text:p text:style-name="CoverDetails">` + odtEscape(l.Document.Date.UTC().Format("2006-01-02 15:04:05 UTC")) + `</text:p>`)
 	tableID := 0
 	var pictures []struct {
 		name string
@@ -176,8 +180,10 @@ func writeODT(ctx context.Context, l documentLayout) ([]byte, error) {
 	stylesXML := `<?xml version="1.0" encoding="UTF-8"?><office:document-styles` + ns + `>` + odtFontDeclarations() + `<office:styles><style:default-style style:family="paragraph"><style:paragraph-properties fo:margin="0pt" fo:line-height="14pt"/><style:text-properties style:font-name="ReportRegular" fo:font-family="Liberation Sans" fo:font-size="10pt" fo:language="` + odtEscape(l.Document.Language) + `"/></style:default-style>
 <style:style style:name="CoverTitle" style:family="paragraph" style:master-page-name="Cover"><style:paragraph-properties fo:margin-top="6cm" fo:margin-bottom="14pt" fo:text-align="center" fo:line-height="34pt"/><style:text-properties style:font-name="ReportBold" fo:font-size="24pt" fo:font-weight="bold"/></style:style>
 <style:style style:name="CoverDomain" style:family="paragraph"><style:paragraph-properties fo:text-align="center" fo:line-height="23pt"/><style:text-properties fo:font-size="16pt"/></style:style>
+<style:style style:name="CoverDetails" style:family="paragraph"><style:paragraph-properties fo:text-align="center" fo:line-height="17pt" fo:margin-top="10pt"/><style:text-properties fo:font-size="12pt"/></style:style>
 <style:style style:name="PageBreak" style:family="paragraph" style:master-page-name="Standard"><style:paragraph-properties fo:break-before="page" fo:line-height="1pt" fo:margin="0pt"/><style:text-properties fo:font-size="1pt"/></style:style>
-<style:style style:name="Header" style:family="paragraph"><style:paragraph-properties fo:line-height="11pt" fo:margin="0pt"/><style:text-properties fo:font-size="8pt"/></style:style>
+<style:style style:name="Header" style:family="paragraph"><style:paragraph-properties fo:line-height="11pt" fo:margin="0pt"><style:tab-stops><style:tab-stop style:position="255.64pt" style:type="center"/><style:tab-stop style:position="511.28pt" style:type="right"/></style:tab-stops></style:paragraph-properties><style:text-properties fo:font-size="` + fmt.Sprint(l.Header.Size) + `pt"/></style:style>
+<style:style style:name="HeaderServer" style:family="text"><style:text-properties style:font-name="ReportBold" fo:font-weight="bold"/></style:style>
 <style:style style:name="Footer" style:family="paragraph"><style:paragraph-properties fo:line-height="14pt" fo:margin="0pt"/><style:text-properties fo:font-size="9pt"/></style:style>
 <style:style style:name="IndexTitle" style:family="paragraph"><style:paragraph-properties fo:line-height="24pt" fo:margin-bottom="18pt"/><style:text-properties style:font-name="ReportBold" fo:font-size="18pt" fo:font-weight="bold"/></style:style>
 ` + odtContentsStyles(l.Document.contentsDepth()) + `
@@ -185,9 +191,7 @@ func writeODT(ctx context.Context, l documentLayout) ([]byte, error) {
 <style:page-layout style:name="CoverLayout"><style:page-layout-properties fo:page-width="595.28pt" fo:page-height="841.89pt" fo:margin="42pt" style:print-orientation="portrait"/></style:page-layout>
 <style:page-layout style:name="BodyLayout"><style:page-layout-properties fo:page-width="595.28pt" fo:page-height="841.89pt" fo:margin="42pt" style:print-orientation="portrait"/><style:header-style><style:header-footer-properties fo:min-height="33pt" fo:margin-bottom="17pt"/></style:header-style><style:footer-style><style:header-footer-properties fo:min-height="14pt" fo:margin-top="10pt"/></style:footer-style></style:page-layout>
 </office:automatic-styles><office:master-styles><style:master-page style:name="Cover" style:page-layout-name="CoverLayout" style:next-style-name="Standard"/><style:master-page style:name="Standard" style:page-layout-name="BodyLayout"><style:header>`
-	for _, value := range []string{l.Document.Title, l.Document.Subtitle, l.Document.Date.UTC().Format("2006-01-02 15:04:05 UTC")} {
-		stylesXML += `<text:p text:style-name="Header">` + odtEscape(value) + `</text:p>`
-	}
+	stylesXML += `<text:p text:style-name="Header"><text:span text:style-name="HeaderServer">` + odtEscape(l.Header.Values[0]) + `</text:span><text:tab/>` + odtEscape(l.Header.Values[1]) + `<text:tab/>` + odtEscape(l.Header.Values[2]) + `</text:p>`
 	stylesXML += `</style:header><style:footer><text:p text:style-name="Footer">` + odtEscape(l.PageLabel) + ` <text:page-number text:select-page="current">2</text:page-number> / <text:page-count>` + fmt.Sprint(len(l.Pages)) + `</text:page-count></text:p></style:footer></style:master-page></office:master-styles></office:document-styles>`
 	meta := `<?xml version="1.0" encoding="UTF-8"?><office:document-meta` + ns + `><office:meta><meta:generator>` + odtEscape(l.Document.Creator) + `</meta:generator><dc:title>` + odtEscape(l.Document.Title) + `</dc:title><dc:language>` + odtEscape(l.Document.Language) + `</dc:language></office:meta></office:document-meta>`
 	files := []struct {

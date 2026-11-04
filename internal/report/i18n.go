@@ -190,6 +190,14 @@ func (g *Generator) fmtDelta(cur, prev float64) (string, string) {
 // english translates the Italian source texts of the pages, including the
 // template. Format verbs must match the source.
 var english = map[string]string{
+	"Archivio completo":               "Complete archive",
+	"Intervallo selezionato: %s — %s": "Selected range: %s — %s",
+	"Report inclusi: %d":              "Included reports: %d",
+	"Sono inclusi i periodi interi che intersecano l'intervallo selezionato. I conteggi di periodi sovrapposti non devono essere sommati.": "Whole periods overlapping the selected range are included. Counts from overlapping periods must not be added together.",
+	"Report annuali":                 "Yearly reports",
+	"Report mensili":                 "Monthly reports",
+	"Report settimanali":             "Weekly reports",
+	"Report giornalieri":             "Daily reports",
 	"Primi %d valori per categoria.": "Top %d values per category.",
 	"Indice":                         "Contents",
 	"Pagina":                         "Page",

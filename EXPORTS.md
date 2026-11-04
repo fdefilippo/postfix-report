@@ -2,7 +2,7 @@
 
 `postfix-report serve` is an optional foreground HTTP service. It serves the
 existing HTML dashboards and generates a complete PDF or editable ODT document
-when a browser requests it. Each document covers **one day, ISO week, month or
+when a browser requests it. Each single-period export covers **one day, ISO week, month or
 year**, with every report section, charts, data tables, coverage warnings and
 the same metric definitions and anonymization as HTML. Fonts and chart images
 are embedded; the downloaded file works without the original report directory.
@@ -11,7 +11,59 @@ The existing `update` command and timer continue importing logs and generating
 HTML. The daemon reads an existing database and never runs migrations, imports
 logs or invokes a browser/Office converter. Its documents use the last completed
 import; failed/incomplete imports must be repaired with `update` first.
-There is no automatic PDF/ODT generation for the entire archive in this mode.
+Archive exports are generated on demand; `update` does not pre-generate PDF/ODT files.
+
+## Complete archive in one PDF or ODT
+
+With `serve`, the top of the main index includes **Export complete archive**
+(**Esporta archivio completo** in Italian). It exports a single document containing
+all selected reports, with a cover, page numbers and a linked table of contents.
+PDF also includes bookmarks; ODT has an editable native table of contents.
+
+The default selects the entire observed archive and every enabled report type.
+Uncheck **Entire archive** to choose inclusive local dates, or select fewer report
+types. **Check selection** previews the effective date range and report counts;
+PDF/ODT buttons become available after a successful preview. Changing any input
+requires checking it again. Preview is also run when the panel first loads.
+
+Reports are grouped yearly, monthly, weekly, then daily; each group is in
+chronological order. The index lists groups and individual periods. **Selections
+include whole calendar periods overlapping the chosen dates**, so a selected day
+can include its whole month/year. They do not clip a monthly report to that day.
+Counts across overlapping periods must not be added together. Missing coverage
+and partially observed periods retain their existing warnings and semantics.
+
+One export is limited to **200 reports**, **2000 pages**, and **32 MiB** of content
+and output; archive preparation also has a 32 MiB presentation-model budget.
+The preview reports when the report-count limit is exceeded. Page/byte limits
+are checked during generation. Oversized documents fail explicitly; nothing is
+silently omitted. Reduce the range or selected types to fit these limits.
+
+All selected reports are queried from one completed WAL snapshot, which is
+released before image generation and pagination. Updates can continue while
+queries run. A preview is informational: the export recomputes its selection in
+its own snapshot if new data has arrived since the preview. Job timeouts, queues,
+ownership, privacy invalidation and private downloads are shared with single
+period exports. No database migration or new systemd/proxy settings are needed.
+
+Both formats use a single-line running header: server/site name on the left,
+period in the center and UTC generation date aligned right. The archive header
+uses its title and selected interval. Header text is fitted without truncation;
+values that cannot fit at the minimum font size cause an explicit error. Full
+titles are also retained on the cover and in the document body.
+
+```sh
+postfix-report -config config.yaml export --all --format pdf --output ./archive.pdf
+postfix-report -config config.yaml export --all --format odt --output ./archive.odt
+postfix-report -config config.yaml export --all --from 2026-10-01 --to 2026-10-31 \
+  --kinds year,month,week,day --format pdf --output ./october.pdf
+```
+
+`--all` cannot be combined with a single-period flag. `--from` and `--to` must
+appear together; dates use `YYYY-MM-DD` in `input.timezone`. `--kinds` accepts a
+comma-separated subset of `year,month,week,day`, requires `--all`, and defaults to
+all enabled types. Empty, duplicate, unknown or disabled types are rejected.
+Whole gaps within the archive remain represented as missing observations.
 
 ## Local use
 
@@ -92,7 +144,7 @@ postfix-report -config config.yaml export --month 2026-10 --format pdf --output 
 postfix-report -config config.yaml export --year 2026 --format odt --output ./year.odt
 ```
 
-Exactly one period is required. Disabled report kinds and periods outside the
+Exactly one period or `--all` is required. Disabled report kinds and periods outside the
 observed data range are rejected. An existing file or symlink is never replaced.
 New CLI files are private (`0600`) and published only after writing completes.
 Choose the destination explicitly; downloaded copies are independent documents.

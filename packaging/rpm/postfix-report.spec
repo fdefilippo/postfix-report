@@ -9,7 +9,7 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.3
+Version:        0.4
 Release:        1%{?dist}
 Summary:        Statistiche Postfix con report HTML, PDF e ODT
 
@@ -126,6 +126,12 @@ exit 0
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Wed Nov 04 2026 Francesco Defilippo <francesco@defilippo.org> - 0.4-1
+- Archivio unico PDF/ODT con indice navigabile, selezione date e granularità.
+- Pannello con anteprima conteggi in cima all'indice e CLI export --all.
+- Snapshot coerente per tutti i periodi e limiti espliciti senza troncamenti.
+- Header su una riga: server a sinistra, periodo al centro, data UTC a destra.
+
 * Wed Nov 04 2026 Francesco Defilippo <francesco@defilippo.org> - 0.3-1
 - Esportazione PDF e ODT per giorno, settimana ISO, mese e anno, anche da CLI.
 - Daemon serve opzionale, export on demand dal browser e job privati limitati.

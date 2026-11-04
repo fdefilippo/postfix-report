@@ -40,7 +40,10 @@ func writePDF(ctx context.Context, l documentLayout) ([]byte, error) {
 				text string
 				size float64
 				bold bool
-			}{{l.Document.Title, 24, true}, {l.Document.Subtitle, 16, false}} {
+			}{{l.Document.Title, 24, true}, {l.Document.Subtitle, 16, false}, {l.Document.CoverNote, 12, false}, {l.Document.Date.UTC().Format("2006-01-02 15:04:05 UTC"), 10, false}} {
+				if part.text == "" {
+					continue
+				}
 				lines, err := m.wrap(part.text, bodyWidth, part.size, part.bold)
 				if err != nil {
 					return nil, err
@@ -59,26 +62,8 @@ func writePDF(ctx context.Context, l documentLayout) ([]byte, error) {
 			}
 			continue
 		}
-		header := []string{l.Document.Title, l.Document.Subtitle, l.Document.Date.UTC().Format("2006-01-02 15:04:05 UTC")}
-		for j, value := range header {
-			lines, err := m.wrap(value, bodyWidth, 8, j == 0)
-			if err != nil {
-				return nil, err
-			}
-			// Domain lists can be longer than a single line. Fit the complete
-			// value on its header line rather than silently truncating evidence.
-			size := 8.0
-			for len(lines) > 1 && size > 4 {
-				size -= 0.25
-				lines, err = m.wrap(value, bodyWidth, size, j == 0)
-				if err != nil {
-					return nil, err
-				}
-			}
-			if len(lines) > 1 {
-				return nil, fmt.Errorf("document header exceeds page width")
-			}
-			if err := write(value, pageLeft, 36+float64(j)*11, size, j == 0); err != nil {
+		for j, value := range l.Header.Values {
+			if err := write(value, l.Header.X[j], 45, l.Header.Size, j == 0); err != nil {
 				return nil, err
 			}
 		}

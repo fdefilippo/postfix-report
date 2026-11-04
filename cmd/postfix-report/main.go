@@ -22,6 +22,8 @@ import (
 
 	"github.com/fdefilippo/postfix-report/internal/app"
 	"github.com/fdefilippo/postfix-report/internal/config"
+	"github.com/fdefilippo/postfix-report/internal/exporter"
+	"github.com/fdefilippo/postfix-report/internal/period"
 )
 
 // Exit codes.
@@ -51,6 +53,7 @@ Comandi:
            pubblica report e genera PDF/ODT su richiesta dal browser
   export   (--date D | --week YYYY-Www | --month YYYY-MM | --year YYYY)
            --format pdf|odt --output FILE   esporta un documento autonomo
+           oppure --all [--from D --to D] [--kinds year,month,week,day]
   rebuild  ricalcola correlazioni e aggregati dagli eventi e rigenera tutto
   verify   controlla integrità e coerenza di database e statistiche
   stats    [--from D --to D] [--json]  stampa le metriche di un intervallo
@@ -138,12 +141,38 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fs.StringVar(&sel.week, "week", "", "weekly report YYYY-Www")
 		fs.StringVar(&sel.month, "month", "", "monthly report YYYY-MM")
 		fs.StringVar(&sel.year, "year", "", "yearly report YYYY")
+		all := fs.Bool("all", false, "export the complete archive")
+		from := fs.String("from", "", "first included local date YYYY-MM-DD (requires --all and --to)")
+		to := fs.String("to", "", "last included local date YYYY-MM-DD (requires --all and --from)")
+		kinds := fs.String("kinds", "", "comma-separated archive report kinds (requires --all)")
 		format := fs.String("format", "", "pdf or odt")
 		output := fs.String("output", "", "new destination file (never overwritten)")
 		if fs.Parse(cargs) != nil || fs.NArg() != 0 {
 			return exitUsage
 		}
-		return c.exportCmd(ctx, sel, *format, *output)
+		var archive *exporter.ArchiveSelection
+		if *all {
+			archive = &exporter.ArchiveSelection{From: *from, To: *to}
+		}
+		archiveFlags := false
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "from" || f.Name == "to" || f.Name == "kinds" {
+				archiveFlags = true
+			}
+		})
+		if archiveFlags && !*all {
+			fmt.Fprintln(stderr, "export: --from, --to e --kinds richiedono --all")
+			return exitUsage
+		}
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "kinds" && archive != nil {
+				archive.Kinds = []period.Kind{}
+				for _, k := range strings.Split(*kinds, ",") {
+					archive.Kinds = append(archive.Kinds, period.Kind(strings.TrimSpace(k)))
+				}
+			}
+		})
+		return c.exportCmd(ctx, sel, archive, *format, *output)
 	case "import":
 		var files stringList
 		fs.Var(&files, "file", "log file to import (repeatable)")
