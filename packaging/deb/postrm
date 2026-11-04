@@ -9,9 +9,12 @@ fi
 if command -v deb-systemd-helper >/dev/null 2>&1; then
 	if [ "$1" = "remove" ]; then
 		deb-systemd-helper mask postfix-report.timer >/dev/null || true
+		deb-systemd-helper mask postfix-report-web.service >/dev/null || true
 	fi
 	if [ "$1" = "purge" ]; then
 		deb-systemd-helper purge postfix-report.timer >/dev/null || true
+		deb-systemd-helper purge postfix-report-web.service >/dev/null || true
+		deb-systemd-helper unmask postfix-report-web.service >/dev/null || true
 		deb-systemd-helper unmask postfix-report.timer >/dev/null || true
 	fi
 fi

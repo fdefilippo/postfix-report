@@ -9,8 +9,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -79,6 +82,15 @@ type Config struct {
 	Logging struct {
 		Level string `yaml:"level"`
 	} `yaml:"logging"`
+	Web struct {
+		Listen       string   `yaml:"listen"`
+		Prefix       string   `yaml:"prefix"`
+		PublicOrigin string   `yaml:"public_origin"`
+		Workers      int      `yaml:"workers"`
+		QueueSize    int      `yaml:"queue_size"`
+		JobTimeout   Duration `yaml:"job_timeout"`
+		JobTTL       Duration `yaml:"job_ttl"`
+	} `yaml:"web"`
 
 	// Location is the parsed Input.Timezone (not part of the YAML).
 	Location *time.Location `yaml:"-"`
@@ -98,6 +110,12 @@ func Default() *Config {
 	c.Output.Directory = "/var/www/html/postfix-report"
 	c.Output.Title = "Postfix report"
 	c.Output.Language = "it"
+	c.Web.Listen = "127.0.0.1:8080"
+	c.Web.Prefix = "/"
+	c.Web.Workers = 1
+	c.Web.QueueSize = 4
+	c.Web.JobTimeout = Duration{2 * time.Minute}
+	c.Web.JobTTL = Duration{10 * time.Minute}
 	c.Reports.Daily, c.Reports.Weekly, c.Reports.Monthly, c.Reports.Yearly = true, true, true, true
 	c.Reports.TopLimit = 20
 	c.Logging.Level = "info"
@@ -167,6 +185,42 @@ func (c *Config) Finish() error {
 	}
 	if c.Reports.TopLimit < 1 || c.Reports.TopLimit > 500 {
 		add("reports.top_limit: must be between 1 and 500")
+	}
+	if host, _, err := net.SplitHostPort(c.Web.Listen); err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
+		add("web.listen: must be a numeric loopback address and port")
+	}
+	if !strings.HasPrefix(c.Web.Prefix, "/") || !strings.HasSuffix(c.Web.Prefix, "/") || strings.Contains(c.Web.Prefix, "..") || strings.ContainsAny(c.Web.Prefix, "\\?#%") || strings.Contains(c.Web.Prefix, "//") {
+		add("web.prefix: must be an absolute URL path ending in / without traversal")
+	}
+	for _, r := range c.Web.Prefix {
+		if !(r == '/' || r == '-' || r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9') {
+			add("web.prefix: unsupported URL path character")
+			break
+		}
+	}
+	if _, port, err := net.SplitHostPort(c.Web.Listen); err == nil {
+		n, e := strconv.Atoi(port)
+		if e != nil || n < 1 || n > 65535 {
+			add("web.listen: port must be between 1 and 65535")
+		}
+	}
+	if c.Web.PublicOrigin != "" {
+		u, err := url.Parse(c.Web.PublicOrigin)
+		if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+			add("web.public_origin: expected http(s)://host[:port] without path")
+		}
+	}
+	if c.Web.Workers < 1 || c.Web.Workers > 4 {
+		add("web.workers: must be between 1 and 4")
+	}
+	if c.Web.QueueSize < 0 || c.Web.QueueSize > 32 {
+		add("web.queue_size: must be between 0 and 32")
+	}
+	if c.Web.JobTimeout.Duration < 10*time.Second || c.Web.JobTimeout.Duration > 10*time.Minute {
+		add("web.job_timeout: must be between 10s and 10m")
+	}
+	if c.Web.JobTTL.Duration < time.Minute || c.Web.JobTTL.Duration > time.Hour {
+		add("web.job_ttl: must be between 1m and 1h")
 	}
 	switch strings.ToLower(c.Logging.Level) {
 	case "debug", "info", "warn", "error":

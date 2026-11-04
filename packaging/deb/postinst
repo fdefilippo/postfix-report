@@ -24,18 +24,23 @@ if [ "$1" = "configure" ]; then
 	# readable and the configuration checked first. An existing enablement
 	# is kept on upgrade (debhelper's snippet for units not enabled).
 	if command -v deb-systemd-helper >/dev/null 2>&1; then
-		if deb-systemd-helper debian-installed postfix-report.timer; then
-			deb-systemd-helper unmask postfix-report.timer >/dev/null || true
-			if deb-systemd-helper --quiet was-enabled postfix-report.timer; then
-				deb-systemd-helper enable postfix-report.timer >/dev/null || true
+		for unit in postfix-report.timer postfix-report-web.service; do
+			if deb-systemd-helper debian-installed "$unit"; then
+				deb-systemd-helper unmask "$unit" >/dev/null || true
+				if deb-systemd-helper --quiet was-enabled "$unit"; then
+					deb-systemd-helper enable "$unit" >/dev/null || true
+				fi
 			fi
-		fi
-		# Record the unit's symlinks in the state file, so that purge
-		# removes them.
-		deb-systemd-helper update-state postfix-report.timer >/dev/null || true
+			# Record existing symlinks for purge; never enable a new service.
+			deb-systemd-helper update-state "$unit" >/dev/null || true
+		done
 	fi
 	if [ -d /run/systemd/system ]; then
 		systemctl --system daemon-reload >/dev/null || true
+		# Upgrade an already running web daemon without starting a disabled one.
+		if [ -n "${2:-}" ]; then
+			deb-systemd-invoke try-restart postfix-report-web.service >/dev/null || true
+		fi
 	fi
 fi
 exit 0

@@ -93,6 +93,9 @@ install: build
 	install -D -m 0644 README.it.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/README.it.md
 	install -D -m 0644 METRICS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/METRICS.md
 	install -D -m 0644 LIMITATIONS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/LIMITATIONS.md
+	install -D -m 0644 EXPORTS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/EXPORTS.md
+	install -d $(DESTDIR)$(PREFIX)/share/doc/postfix-report/licenses
+	install -m 0644 docs/licenses/* $(DESTDIR)$(PREFIX)/share/doc/postfix-report/licenses/
 
 # The unit refers to /usr/bin (RPM layout): rewrite it for $(PREFIX). With
 # systemd < 245 (e.g. EL8) drop the directives it does not know.
@@ -105,6 +108,11 @@ install-systemd:
 		deploy/systemd/postfix-report.service > $(DESTDIR)/etc/systemd/system/postfix-report.service
 	chmod 0644 $(DESTDIR)/etc/systemd/system/postfix-report.service
 	install -D -m 0644 deploy/systemd/postfix-report.timer $(DESTDIR)/etc/systemd/system/postfix-report.timer
+	sed -e 's|/usr/bin/$(BINARY)|$(PREFIX)/bin/$(BINARY)|' \
+		$$(if [ -n "$(SYSTEMD_VERSION)" ] && [ "$(SYSTEMD_VERSION)" -lt 245 ]; then \
+			echo "-e /^ProtectHostname=/d -e /^ProtectKernelLogs=/d -e /^ProtectClock=/d -e /^IPAddressDeny=/d -e /^IPAddressAllow=/d"; fi) \
+		deploy/systemd/postfix-report-web.service > $(DESTDIR)/etc/systemd/system/postfix-report-web.service
+	chmod 0644 $(DESTDIR)/etc/systemd/system/postfix-report-web.service
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(BINARY)
@@ -147,6 +155,7 @@ deb:
 	GOOS=linux GOARCH=$(DEB_ARCH) $(GO) build -trimpath -ldflags '-s -w -X main.version=$(DEB_VERSION)' -o $(DEB_ROOT)/usr/bin/$(BINARY) ./cmd/postfix-report
 	install -D -m 0644 deploy/systemd/postfix-report.service $(DEB_ROOT)/usr/lib/systemd/system/postfix-report.service
 	install -D -m 0644 deploy/systemd/postfix-report.timer $(DEB_ROOT)/usr/lib/systemd/system/postfix-report.timer
+	install -D -m 0644 deploy/systemd/postfix-report-web.service $(DEB_ROOT)/usr/lib/systemd/system/postfix-report-web.service
 	install -d -m 0755 $(DEB_ROOT)/etc/postfix-report $(DEB_ROOT)/usr/share/man/man1 $(DEB_DOC)/examples
 	install -D -m 0644 packaging/deb/lintian-overrides $(DEB_ROOT)/usr/share/lintian/overrides/$(BINARY)
 	sed -e 's|/var/log/maillog-\*|/var/log/mail.log.*|' -e 's|/var/log/maillog$$|/var/log/mail.log|' config.example.yaml > $(DEB_ROOT)/etc/postfix-report/config.yaml
@@ -155,12 +164,16 @@ deb:
 	gzip -9n -c docs/postfix-report.1 > $(DEB_ROOT)/usr/share/man/man1/postfix-report.1.gz
 	install -m 0644 packaging/deb/copyright $(DEB_ROOT)/etc/postfix-report/config.yaml $(DEB_DOC)/
 	mv $(DEB_DOC)/config.yaml $(DEB_DOC)/config.example.yaml
-	for f in README.md README.it.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md; do gzip -9n -c $$f > $(DEB_DOC)/$$f.gz; done
+	for f in README.md README.it.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md EXPORTS.md; do gzip -9n -c $$f > $(DEB_DOC)/$$f.gz; done
 	install -m 0644 deploy/apache/postfix-report.conf $(DEB_DOC)/examples/apache-postfix-report.conf
 	install -m 0644 deploy/nginx/postfix-report.conf $(DEB_DOC)/examples/nginx-postfix-report.conf
+	install -m 0644 deploy/nginx/postfix-report-web.conf $(DEB_DOC)/examples/nginx-postfix-report-web.conf
+	install -m 0644 deploy/apache/postfix-report-web.conf $(DEB_DOC)/examples/apache-postfix-report-web.conf
 	install -m 0644 deploy/cron/postfix-report $(DEB_DOC)/examples/cron-postfix-report
 	printf '%s (%s) unstable; urgency=medium\n\n  * Upstream release %s (see the GitHub release notes).\n\n -- Francesco Defilippo <francesco@defilippo.org>  %s\n' \
 		$(BINARY) $(DEB_VERSION) $(RPM_VERSION) '$(DEB_DATE)' | gzip -9n > $(DEB_DOC)/changelog.Debian.gz
+	install -d $(DEB_DOC)/licenses
+	install -m 0644 docs/licenses/* $(DEB_DOC)/licenses/
 	chmod 0644 $(DEB_DOC)/*.gz $(DEB_DOC)/copyright $(DEB_DOC)/config.example.yaml
 	install -m 0755 packaging/deb/postinst packaging/deb/prerm packaging/deb/postrm $(DEB_ROOT)/DEBIAN/
 	echo /etc/postfix-report/config.yaml > $(DEB_ROOT)/DEBIAN/conffiles

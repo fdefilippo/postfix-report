@@ -9,9 +9,9 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.2
+Version:        0.3
 Release:        1%{?dist}
-Summary:        Statistiche Postfix con storico SQLite e report HTML statici
+Summary:        Statistiche Postfix con report HTML, PDF e ODT
 
 License:        GPL-3.0-or-later
 URL:            https://github.com/fdefilippo/postfix-report
@@ -33,7 +33,9 @@ postfix-report legge i log di Postfix (anche ruotati o compressi), conserva lo
 storico in un database SQLite e genera report HTML statici orari, giornalieri,
 settimanali, mensili e annuali. L'importazione è incrementale e idempotente;
 la copertura dei log è dichiarata (i dati assenti non sono mostrati come
-zero). Un timer systemd aggiorna i report ogni ora.
+zero). Un timer systemd aggiorna i report ogni ora. Il daemon web opzionale
+serve i report e genera documenti PDF e ODT su richiesta dal browser; gli
+stessi formati sono esportabili dalla riga di comando.
 
 %prep
 %autosetup
@@ -41,6 +43,8 @@ zero). Un timer systemd aggiorna i report ogni ora.
 mkdir -p examples
 cp -p deploy/apache/%{name}.conf examples/apache-%{name}.conf
 cp -p deploy/nginx/%{name}.conf examples/nginx-%{name}.conf
+cp -p deploy/nginx/%{name}-web.conf examples/nginx-%{name}-web.conf
+cp -p deploy/apache/%{name}-web.conf examples/apache-%{name}-web.conf
 cp -p deploy/cron/%{name} examples/cron-%{name}
 
 %build
@@ -77,11 +81,14 @@ install -D -m 0644 docs/%{name}.1 %{buildroot}%{_mandir}/man1/%{name}.1
 install -D -m 0640 config.example.yaml %{buildroot}%{_sysconfdir}/%{name}/config.yaml
 install -D -m 0644 deploy/systemd/%{name}.service %{buildroot}%{_unitdir}/%{name}.service
 install -D -m 0644 deploy/systemd/%{name}.timer %{buildroot}%{_unitdir}/%{name}.timer
+install -D -m 0644 deploy/systemd/%{name}-web.service %{buildroot}%{_unitdir}/%{name}-web.service
 %if 0%{?rhel} && 0%{?rhel} < 9
 # systemd 239: no ProtectHostname/ProtectKernelLogs/ProtectClock, and no BPF
 # firewall with cgroup v1 (PrivateNetwork=yes already isolates the service).
 sed -i -e '/^ProtectHostname=/d' -e '/^ProtectKernelLogs=/d' -e '/^ProtectClock=/d' \
     -e '/^IPAddressDeny=/d' %{buildroot}%{_unitdir}/%{name}.service
+sed -i -e '/^ProtectHostname=/d' -e '/^ProtectKernelLogs=/d' -e '/^ProtectClock=/d' \
+    -e '/^IPAddressDeny=/d' -e '/^IPAddressAllow=/d' %{buildroot}%{_unitdir}/%{name}-web.service
 %endif
 install -d -m 0750 %{buildroot}%{_sharedstatedir}/%{name}
 install -d -m 0755 %{buildroot}%{_localstatedir}/www/html/%{name}
@@ -94,17 +101,19 @@ getent passwd %{name} >/dev/null || \
 exit 0
 
 %post
+# The web daemon is opt-in: do not apply a distribution enable-all preset.
+# The existing macro still reloads systemd after installing all three units.
 %systemd_post %{name}.service %{name}.timer
 
 %preun
-%systemd_preun %{name}.service %{name}.timer
+%systemd_preun %{name}.service %{name}.timer %{name}-web.service
 
 %postun
-%systemd_postun_with_restart %{name}.timer
+%systemd_postun_with_restart %{name}.timer %{name}-web.service
 
 %files
-%license LICENSE
-%doc README.md README.it.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md config.example.yaml
+%license LICENSE docs/licenses
+%doc README.md README.it.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md EXPORTS.md config.example.yaml
 %doc examples
 %{_bindir}/%{name}
 %{_mandir}/man1/%{name}.1*
@@ -112,10 +121,18 @@ exit 0
 %config(noreplace) %attr(0640,root,%{name}) %{_sysconfdir}/%{name}/config.yaml
 %{_unitdir}/%{name}.service
 %{_unitdir}/%{name}.timer
+%{_unitdir}/%{name}-web.service
 %dir %attr(0750,%{name},%{name}) %{_sharedstatedir}/%{name}
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Wed Nov 04 2026 Francesco Defilippo <francesco@defilippo.org> - 0.3-1
+- Esportazione PDF e ODT per giorno, settimana ISO, mese e anno, anche da CLI.
+- Daemon serve opzionale, export on demand dal browser e job privati limitati.
+- Unità systemd web separata, proxy autenticati, documentazione e licenze.
+- Letture SQLite read-only consistenti con il writer e aggiornamenti privacy.
+- Correzioni di integrità checkpoint, correlazione, copertura e verifica dati.
+
 * Sun Oct 25 2026 Francesco Defilippo <francesco@defilippo.org> - 0.2-1
 - Report anche in inglese (output.language: en); l'italiano resta predefinito.
 - README.md in inglese, versione italiana in README.it.md.

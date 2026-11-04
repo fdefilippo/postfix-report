@@ -114,7 +114,7 @@ statico: un RPM compilato su EL9 si installa anche su EL10.
 
 Per pubblicare una release si aggiornano `Version` e `%changelog` nello spec
 e la versione in `docs/postfix-report.1`, poi si crea e si invia il tag
-(`git tag -a v0.2 && git push origin v0.2`). Il workflow
+(`git tag -a v0.3 && git push origin v0.3`). Il workflow
 `.github/workflows/release.yml` controlla le versioni (`make release-check`),
 compila gli RPM e i `.deb` e crea la release. Parte solo sui tag.
 
@@ -382,3 +382,13 @@ Questo programma è software libero: puoi ridistribuirlo e/o modificarlo nei
 termini della GNU General Public License pubblicata dalla Free Software
 Foundation, versione 3 o (a tua scelta) qualsiasi versione successiva.
 Vedi [LICENSE](LICENSE). SPDX: `GPL-3.0-or-later`.
+
+## Export PDF/ODT dal browser (opzionale)
+
+Dopo `update`, avviare `postfix-report serve`: nelle pagine dei periodi compaiono
+pulsanti PDF e ODT per scaricare un documento completo e autonomo, generato su
+richiesta. Il timer di aggiornamento continua a funzionare separatamente.
+Per l'accesso remoto utilizzare il profilo reverse proxy con HTTPS e
+autenticazione e l'unità opzionale `postfix-report-web.service`. È disponibile
+anche il comando CLI `export`. Configurazione, privacy e limiti sono descritti
+in [EXPORTS.md](EXPORTS.md).

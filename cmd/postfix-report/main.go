@@ -47,6 +47,10 @@ Comandi:
   generate [--all | --date D | --week YYYY-Www | --month YYYY-MM | --year YYYY]
            senza opzioni rigenera le pagine invalidate
   update   importa i percorsi configurati e rigenera solo i report interessati
+  serve    [--listen IP:PORT] [--prefix /percorso/] [--origin https://host]
+           pubblica report e genera PDF/ODT su richiesta dal browser
+  export   (--date D | --week YYYY-Www | --month YYYY-MM | --year YYYY)
+           --format pdf|odt --output FILE   esporta un documento autonomo
   rebuild  ricalcola correlazioni e aggregati dagli eventi e rigenera tutto
   verify   controlla integrità e coerenza di database e statistiche
   stats    [--from D --to D] [--json]  stampa le metriche di un intervallo
@@ -118,6 +122,28 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	var handler func(context.Context, *app.App) int
 	switch cmd {
+	case "serve":
+		fs.String("listen", cfg.Web.Listen, "numeric loopback listener")
+		fs.String("prefix", cfg.Web.Prefix, "URL prefix, ending in /")
+		fs.String("origin", cfg.Web.PublicOrigin, "public origin behind the authenticated proxy")
+		if fs.Parse(cargs) != nil || fs.NArg() != 0 {
+			return exitUsage
+		}
+		overrides := make(map[string]string)
+		fs.Visit(func(f *flag.Flag) { overrides[f.Name] = f.Value.String() })
+		return c.serveCmd(ctx, path, overrides)
+	case "export":
+		sel := &selection{}
+		fs.StringVar(&sel.date, "date", "", "daily report YYYY-MM-DD")
+		fs.StringVar(&sel.week, "week", "", "weekly report YYYY-Www")
+		fs.StringVar(&sel.month, "month", "", "monthly report YYYY-MM")
+		fs.StringVar(&sel.year, "year", "", "yearly report YYYY")
+		format := fs.String("format", "", "pdf or odt")
+		output := fs.String("output", "", "new destination file (never overwritten)")
+		if fs.Parse(cargs) != nil || fs.NArg() != 0 {
+			return exitUsage
+		}
+		return c.exportCmd(ctx, sel, *format, *output)
 	case "import":
 		var files stringList
 		fs.Var(&files, "file", "log file to import (repeatable)")

@@ -14,7 +14,9 @@ License: BSD-3-clause and MIT and Apache-2.0
  modules: modernc.org/sqlite, modernc.org/libc, modernc.org/mathutil,
  modernc.org/memory, github.com/google/uuid, github.com/remyoudompheng/bigfft,
  golang.org/x/sys (BSD-3-clause); github.com/dustin/go-humanize (MIT);
- go.yaml.in/yaml/v3 (MIT and Apache-2.0). Their license texts are under
+ go.yaml.in/yaml/v3 (MIT and Apache-2.0); github.com/signintech/gopdf and
+ github.com/phpdave11/gofpdi (MIT); github.com/pkg/errors, golang.org/x/image
+ and golang.org/x/text (BSD-3-clause). Their license texts are under
  vendor/ in the source tarball attached to each release. On Debian systems
  the Apache License 2.0 is in "/usr/share/common-licenses/Apache-2.0".
 
@@ -31,3 +33,11 @@ License: GPL-3.0+
  .
  On Debian systems, the complete text of the GNU General Public License
  version 3 can be found in "/usr/share/common-licenses/GPL-3".
+
+Files: internal/document/fonts/*
+Copyright: 2010 Google Corporation; 2012 Red Hat, Inc.
+License: SIL-OFL-1.1
+ The embedded Liberation Sans fonts retain their original license, reproduced
+ in /usr/share/doc/postfix-report/licenses/Liberation-OFL.txt. Chart images and
+ documents do not acquire the font license. Renderer dependency licenses are
+ supplied in the same licenses directory.

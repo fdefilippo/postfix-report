@@ -125,6 +125,12 @@ jobs:
 
           After installing: grant read access to the logs, run \`postfix-report check-config\`
           and \`systemctl enable --now postfix-report.timer\` (see the README and \`man postfix-report\`).
+          Optional browser exports: configure an authenticated HTTPS reverse proxy and
+          enable \`postfix-report-web.service\` after the first update. The separate
+          \`postfix-report serve\` daemon provides PDF/ODT downloads for each daily,
+          weekly, monthly or yearly report. See \`EXPORTS.md\` for setup and the
+          equivalent \`postfix-report export\` CLI command.
+
           Set \`output.language: en\` for English reports. The source tarball includes
           \`vendor/\`: \`rpmbuild -ta\` needs no network access.
           EOF

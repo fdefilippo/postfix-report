@@ -7,10 +7,11 @@ Depends: passwd
 Section: mail
 Priority: optional
 Homepage: https://github.com/fdefilippo/postfix-report
-Description: Postfix statistics with SQLite history and static HTML reports
+Description: Postfix statistics with HTML, PDF and ODT reports
  postfix-report reads the Postfix logs (rotated or gzip-compressed too),
  keeps the history in a SQLite database and writes static HTML reports
  (daily, ISO weekly, monthly, yearly) that work from any static web server
  or file://. Import is incremental and idempotent; log coverage is stated
  explicitly, so missing data is never shown as zero. A systemd timer
- updates the reports every hour.
+ updates the reports every hour. An optional web daemon exports complete PDF
+ and editable ODT reports on demand; the same formats are available from the CLI.

@@ -66,3 +66,15 @@ privacy:
 logging:
   # debug, info, warn, error (su stderr; con systemd finisce nel journal).
   level: info
+
+# Modalità web opzionale: postfix-report serve (il timer update resta separato).
+# Per pubblicazione remota usare HTTPS e autenticazione sul reverse proxy;
+# impostare public_origin all'origine esterna, senza percorso o slash finale.
+web:
+  listen: 127.0.0.1:8080
+  prefix: /
+  public_origin: ""
+  workers: 1
+  queue_size: 4
+  job_timeout: 2m
+  job_ttl: 10m

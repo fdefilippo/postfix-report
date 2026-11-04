@@ -190,6 +190,10 @@ func (g *Generator) fmtDelta(cur, prev float64) (string, string) {
 // english translates the Italian source texts of the pages, including the
 // template. Format verbs must match the source.
 var english = map[string]string{
+	"Primi %d valori per categoria.": "Top %d values per category.",
+	"Indice":                         "Contents",
+	"Pagina":                         "Page",
+	"Fuso orario: %s":                "Timezone: %s",
 	// page frame (template)
 	"Navigazione principale": "Main navigation",
 	"Periodi adiacenti":      "Adjacent periods",

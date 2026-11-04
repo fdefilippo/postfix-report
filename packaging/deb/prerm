@@ -4,6 +4,6 @@
 set -e
 
 if [ "$1" = "remove" ] && [ -d /run/systemd/system ] && command -v deb-systemd-invoke >/dev/null 2>&1; then
-	deb-systemd-invoke stop postfix-report.timer postfix-report.service >/dev/null || true
+	deb-systemd-invoke stop postfix-report-web.service postfix-report.timer postfix-report.service >/dev/null || true
 fi
 exit 0

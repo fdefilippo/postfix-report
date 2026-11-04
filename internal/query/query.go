@@ -7,14 +7,15 @@
 package query
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/fdefilippo/postfix-report/internal/period"
-	"github.com/fdefilippo/postfix-report/internal/store"
 )
 
 // Coverage states.
@@ -24,10 +25,34 @@ const (
 	Missing  = "missing"
 )
 
+// Reader is the read-only subset shared by a database and a transaction.
+type Reader interface {
+	Query(string, ...any) (*sql.Rows, error)
+	QueryRow(string, ...any) *sql.Row
+}
+
+// ContextReader binds every query to the lifetime of a request or job.
+func ContextReader(ctx context.Context, tx *sql.Tx) Reader { return contextReader{ctx, tx} }
+
+type contextReader struct {
+	ctx context.Context
+	tx  *sql.Tx
+}
+
+func (r contextReader) Query(q string, args ...any) (*sql.Rows, error) {
+	return r.tx.QueryContext(r.ctx, q, args...)
+}
+func (r contextReader) QueryRow(q string, args ...any) *sql.Row {
+	return r.tx.QueryRowContext(r.ctx, q, args...)
+}
+
 // Q runs queries.
 type Q struct {
-	DB  *store.DB
+	DB  Reader
 	Loc *time.Location
+	// MaxDelaySamples optionally bounds exact percentile memory for web exports.
+	// Zero retains the unlimited CLI/HTML behavior; exceeding it returns an error.
+	MaxDelaySamples int
 	// Gap is the maximum distance (seconds) between two observed lines for
 	// the time between them to count as observed.
 	Gap int64
@@ -305,6 +330,9 @@ func (q *Q) Delays(lo, hi int64, class string) (DelayStats, error) {
 	var sum float64
 	for rows.Next() {
 		var d float64
+		if q.MaxDelaySamples > 0 && len(v) >= q.MaxDelaySamples {
+			return DelayStats{}, fmt.Errorf("exact delay statistics exceed the export limit of %d samples", q.MaxDelaySamples)
+		}
 		if err := rows.Scan(&d); err != nil {
 			return DelayStats{}, err
 		}

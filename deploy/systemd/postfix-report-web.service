@@ -1,0 +1,46 @@
+# Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Unit]
+Description=postfix-report: report web ed export PDF/ODT su richiesta
+Documentation=man:postfix-report(1)
+After=network.target
+
+[Service]
+Type=simple
+User=postfix-report
+Group=postfix-report
+ExecStart=/usr/bin/postfix-report -config /etc/postfix-report/config.yaml serve
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+# SQLite's read-only connections may need WAL/SHM sidecars; SQL is query_only.
+ReadWritePaths=/var/lib/postfix-report
+ReadOnlyPaths=/var/www/html/postfix-report
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+MemoryMax=512M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

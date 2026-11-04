@@ -3,7 +3,11 @@
 
 package query
 
-import "testing"
+import (
+	"github.com/fdefilippo/postfix-report/internal/store"
+	"path/filepath"
+	"testing"
+)
 
 func TestDelayStatsNearestRank(t *testing.T) {
 	v := []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
@@ -35,5 +39,37 @@ func TestCovered(t *testing.T) {
 	}
 	if st, f := status(1800, 3600); st != Partial || f != 0.5 {
 		t.Error("partial")
+	}
+}
+
+func TestExactDelayExportLimit(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "delays.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	// This query fixture deliberately isolates delivery statistics from the
+	// correlation graph; no production database is used.
+	if _, err = db.Exec(`PRAGMA foreign_keys=OFF`); err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 3; i++ {
+		if _, err = db.Exec(`INSERT INTO deliveries(event_id,instance_id,recipient_id,ts,agent,rcpt,delay,status,class) VALUES(?,1,1,1,'smtp','bob@example.org',?,'sent','delivery')`, i, float64(i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	q := Q{DB: db, MaxDelaySamples: 2}
+	if _, err = q.Delays(0, 10, "delivery"); err == nil {
+		t.Fatal("limit silently omitted or approximated data")
+	}
+	q.MaxDelaySamples = 3
+	d, err := q.Delays(0, 10, "delivery")
+	if err != nil || d.Count != 3 || d.P50 != 2 {
+		t.Fatalf("boundary: %+v %v", d, err)
+	}
+	q.MaxDelaySamples = 0
+	d, err = q.Delays(0, 10, "delivery")
+	if err != nil || d.Count != 3 {
+		t.Fatalf("ordinary query changed: %+v %v", d, err)
 	}
 }

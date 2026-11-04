@@ -1,6 +1,6 @@
 .\" Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
 .\" SPDX-License-Identifier: GPL-3.0-or-later
-.TH POSTFIX-REPORT 1 "ottobre 2026" "postfix-report 0.2" "Comandi utente"
+.TH POSTFIX-REPORT 1 "novembre 2026" "postfix-report 0.3" "Comandi utente"
 .SH NOME
 postfix-report \- statistiche di Postfix con storico SQLite e report HTML statici
 .SH SINTASSI
@@ -189,3 +189,22 @@ GPL-3.0-or-later.
 .BR postconf (5)
 .PP
 https://github.com/fdefilippo/postfix-report
+
+.SH EXPORT PDF E ODT
+.B postfix-report serve
+avvia un servizio HTTP in foreground (predefinito 127.0.0.1:8080) con report HTML
+ed esportazione PDF/ODT su richiesta dal browser. Il timer update resta separato.
+Le opzioni --listen, --prefix e --origin impostano listener loopback, prefisso URL
+e origine pubblica. Per accesso remoto usare un reverse proxy con HTTPS e
+autenticazione su tutte le route. La nuova unità postfix-report-web.service
+è opzionale e non viene abilitata automaticamente.
+.PP
+.B postfix-report export --month 2026-10 --format pdf --output month.pdf
+esporta un singolo periodo. Sono supportate --date, --week, --month e --year,
+esattamente una alla volta. I formati sono pdf e odt. La destinazione deve avere
+l'estensione corrispondente e non deve esistere; il file viene creato con modo 0600.
+.PP
+Configurazione web: listen, prefix, public_origin, workers, queue_size,
+job_timeout, job_ttl. Le risposte non vengono salvate nella directory pubblica.
+I documenti comprendono tutte le sezioni e conservano la semantica dei dati mancanti.
+Per dettagli sui limiti e sull'installazione consultare EXPORTS.md.

@@ -38,6 +38,21 @@ func TestEmptyFileUsesDefaults(t *testing.T) {
 	}
 }
 
+func TestWebConfigurationBoundaries(t *testing.T) {
+	for _, entry := range []string{"listen: 0.0.0.0:8080", "listen: localhost:8080", "prefix: /../", "prefix: /bad\"/", "public_origin: https://example.org/path", "workers: 100", "queue_size: -1", "job_timeout: 1s", "job_ttl: 10h"} {
+		if _, err := Load(write(t, "web:\n  "+entry+"\n")); err == nil {
+			t.Error("accepted", entry)
+		}
+	}
+	c, err := Load(write(t, "web:\n  listen: '[::1]:8080'\n  prefix: /postfix-report/\n  public_origin: https://reports.example.org\n  job_timeout: 30s\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Web.Workers != 1 || c.Web.QueueSize != 4 || c.Web.Prefix != "/postfix-report/" {
+		t.Fatal("web defaults lost")
+	}
+}
+
 func TestValidationErrors(t *testing.T) {
 	cases := map[string]string{
 		"unknown key":   "databse:\n  path: x\n",

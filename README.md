@@ -119,7 +119,7 @@ an RPM built on EL9 also installs on EL10.
 
 To publish a release, update `Version` and `%changelog` in the spec and the
 version in `docs/postfix-report.1`, then create and push the tag
-(`git tag -a v0.2 && git push origin v0.2`). The workflow
+(`git tag -a v0.3 && git push origin v0.3`). The workflow
 `.github/workflows/release.yml` checks the versions (`make release-check`),
 builds the RPMs and the `.deb` packages and creates the release. It runs only
 on tags.
@@ -388,3 +388,12 @@ This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version. See [LICENSE](LICENSE). SPDX: `GPL-3.0-or-later`.
+
+## Optional browser PDF/ODT exports
+
+Run `postfix-report serve` after `update` to serve the dashboards and generate a
+self-contained PDF or editable ODT for any daily, weekly, monthly or yearly
+report on demand. The existing update timer continues working independently.
+For remote access, use the authenticated HTTPS reverse-proxy profile and the
+optional `postfix-report-web.service`. Export is also available as a one-shot
+CLI command. See [EXPORTS.md](EXPORTS.md) for setup, privacy and resource limits.
