@@ -380,15 +380,6 @@ pipeline (import, correlation, aggregation) about 24,000 lines/s. The
 reference log (254,884 lines) imports in about 10 s. The database takes about
 30 MB per 150,000 log lines per day (see LIMITATIONS.md).
 
-## License
-
-Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version. See [LICENSE](LICENSE). SPDX: `GPL-3.0-or-later`.
-
 ## Optional browser PDF/ODT exports
 
 Run `postfix-report serve` after `update` to serve the dashboards and generate a
@@ -400,3 +391,12 @@ CLI command. The index also provides **Export complete archive**: one PDF/ODT
 with a linked index, all enabled period types, and optional date/type selection.
 The same operation is available as `export --all`.
 See [EXPORTS.md](EXPORTS.md) for setup, privacy and resource limits.
+
+## License
+
+Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See [LICENSE](LICENSE). SPDX: `GPL-3.0-or-later`.
