@@ -114,7 +114,7 @@ statico: un RPM compilato su EL9 si installa anche su EL10.
 
 Per pubblicare una release si aggiornano `Version` e `%changelog` nello spec
 e la versione in `docs/postfix-report.1`, poi si crea e si invia il tag
-(`git tag -a v0.4 && git push origin v0.4`). Il workflow
+(`git tag -a v0.4.1 && git push origin v0.4.1`). Il workflow
 `.github/workflows/release.yml` controlla le versioni (`make release-check`),
 compila gli RPM e i `.deb` e crea la release. Parte solo sui tag.
 
@@ -374,15 +374,6 @@ pipeline completa (import, correlazione, aggregazione) circa 24.000 righe/s.
 Il log di riferimento (254.884 righe) si importa in circa 10 s. Il database
 occupa circa 30 MB per 150.000 righe di log al giorno (vedi LIMITATIONS.md).
 
-## Licenza
-
-Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
-
-Questo programma è software libero: puoi ridistribuirlo e/o modificarlo nei
-termini della GNU General Public License pubblicata dalla Free Software
-Foundation, versione 3 o (a tua scelta) qualsiasi versione successiva.
-Vedi [LICENSE](LICENSE). SPDX: `GPL-3.0-or-later`.
-
 ## Export PDF/ODT dal browser (opzionale)
 
 Dopo `update`, avviare `postfix-report serve`: nelle pagine dei periodi compaiono
@@ -395,3 +386,14 @@ genera un unico PDF/ODT con indice navigabile e report annuali, mensili, settima
 e giornalieri, selezionabili per intervallo e tipo. Da CLI usare `export --all`.
 Configurazione, privacy e limiti sono descritti
 in [EXPORTS.md](EXPORTS.md).
+Esempi commentati di reverse proxy HTTPS: [Apache HTTPD](docs/apache-httpd.conf)
+e [Nginx](docs/nginx.conf).
+
+## Licenza
+
+Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+
+Questo programma è software libero: puoi ridistribuirlo e/o modificarlo nei
+termini della GNU General Public License pubblicata dalla Free Software
+Foundation, versione 3 o (a tua scelta) qualsiasi versione successiva.
+Vedi [LICENSE](LICENSE). SPDX: `GPL-3.0-or-later`.

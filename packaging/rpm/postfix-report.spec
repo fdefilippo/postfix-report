@@ -9,7 +9,7 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.4
+Version:        0.4.1
 Release:        1%{?dist}
 Summary:        Statistiche Postfix con report HTML, PDF e ODT
 
@@ -45,6 +45,7 @@ cp -p deploy/apache/%{name}.conf examples/apache-%{name}.conf
 cp -p deploy/nginx/%{name}.conf examples/nginx-%{name}.conf
 cp -p deploy/nginx/%{name}-web.conf examples/nginx-%{name}-web.conf
 cp -p deploy/apache/%{name}-web.conf examples/apache-%{name}-web.conf
+cp -p docs/apache-httpd.conf docs/nginx.conf examples/
 cp -p deploy/cron/%{name} examples/cron-%{name}
 
 %build
@@ -126,6 +127,11 @@ exit 0
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Wed Nov 04 2026 Francesco Defilippo <francesco@defilippo.org> - 0.4.1-1
+- Esempi Apache HTTPD e Nginx documentati in docs/ per export PDF/ODT via HTTPS.
+- Esempi inclusi in RPM, DEB e installazione manuale, con link nelle guide.
+- Sezione licenza mantenuta alla fine dei README inglese e italiano.
+
 * Wed Nov 04 2026 Francesco Defilippo <francesco@defilippo.org> - 0.4-1
 - Archivio unico PDF/ODT con indice navigabile, selezione date e granularità.
 - Pannello con anteprima conteggi in cima all'indice e CLI export --all.

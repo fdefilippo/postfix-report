@@ -135,6 +135,9 @@ jobs:
           Limits per archive: 200 reports, 2000 pages and 32 MiB; oversized exports
           fail explicitly without truncation. All reports use one consistent snapshot.
           See \`EXPORTS.md\` for setup, selection semantics and resource limits.
+          Commented Apache HTTPD and Nginx HTTPS reverse-proxy examples are in
+          \`docs/apache-httpd.conf\` and \`docs/nginx.conf\`, also installed under
+          \`/usr/share/doc/postfix-report/examples/\` by the RPM and DEB packages.
 
           Set \`output.language: en\` for English reports. The source tarball includes
           \`vendor/\`: \`rpmbuild -ta\` needs no network access.

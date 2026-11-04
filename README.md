@@ -119,7 +119,7 @@ an RPM built on EL9 also installs on EL10.
 
 To publish a release, update `Version` and `%changelog` in the spec and the
 version in `docs/postfix-report.1`, then create and push the tag
-(`git tag -a v0.4 && git push origin v0.4`). The workflow
+(`git tag -a v0.4.1 && git push origin v0.4.1`). The workflow
 `.github/workflows/release.yml` checks the versions (`make release-check`),
 builds the RPMs and the `.deb` packages and creates the release. It runs only
 on tags.
@@ -391,6 +391,8 @@ CLI command. The index also provides **Export complete archive**: one PDF/ODT
 with a linked index, all enabled period types, and optional date/type selection.
 The same operation is available as `export --all`.
 See [EXPORTS.md](EXPORTS.md) for setup, privacy and resource limits.
+Commented HTTPS reverse-proxy examples are available for
+[Apache HTTPD](docs/apache-httpd.conf) and [Nginx](docs/nginx.conf).
 
 ## License
 

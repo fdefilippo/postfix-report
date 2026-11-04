@@ -94,6 +94,8 @@ install: build
 	install -D -m 0644 METRICS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/METRICS.md
 	install -D -m 0644 LIMITATIONS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/LIMITATIONS.md
 	install -D -m 0644 EXPORTS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/EXPORTS.md
+	install -D -m 0644 docs/apache-httpd.conf $(DESTDIR)$(PREFIX)/share/doc/postfix-report/examples/apache-httpd.conf
+	install -D -m 0644 docs/nginx.conf $(DESTDIR)$(PREFIX)/share/doc/postfix-report/examples/nginx.conf
 	install -d $(DESTDIR)$(PREFIX)/share/doc/postfix-report/licenses
 	install -m 0644 docs/licenses/* $(DESTDIR)$(PREFIX)/share/doc/postfix-report/licenses/
 
@@ -169,6 +171,7 @@ deb:
 	install -m 0644 deploy/nginx/postfix-report.conf $(DEB_DOC)/examples/nginx-postfix-report.conf
 	install -m 0644 deploy/nginx/postfix-report-web.conf $(DEB_DOC)/examples/nginx-postfix-report-web.conf
 	install -m 0644 deploy/apache/postfix-report-web.conf $(DEB_DOC)/examples/apache-postfix-report-web.conf
+	install -m 0644 docs/apache-httpd.conf docs/nginx.conf $(DEB_DOC)/examples/
 	install -m 0644 deploy/cron/postfix-report $(DEB_DOC)/examples/cron-postfix-report
 	printf '%s (%s) unstable; urgency=medium\n\n  * Upstream release %s (see the GitHub release notes).\n\n -- Francesco Defilippo <francesco@defilippo.org>  %s\n' \
 		$(BINARY) $(DEB_VERSION) $(RPM_VERSION) '$(DEB_DATE)' | gzip -9n > $(DEB_DOC)/changelog.Debian.gz

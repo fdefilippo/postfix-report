@@ -106,8 +106,25 @@ when nonstandard. It must not contain a path or a trailing slash. The prefix
 starts and ends with `/`. Preserve the external Host header and the path prefix
 in the reverse proxy. Do not strip `/postfix-report/` before forwarding it.
 
-Use `deploy/nginx/postfix-report-web.conf` or
-`deploy/apache/postfix-report-web.conf` **instead of** the static Alias profile.
+Commented examples are available in [`docs/nginx.conf`](docs/nginx.conf) and
+[`docs/apache-httpd.conf`](docs/apache-httpd.conf). Include the chosen file inside
+an existing HTTPS server block / VirtualHost, with your TLS certificates already
+configured. Set the public origin, backend port and password-file path for your
+installation. The backend port must match `web.listen`; for example, when using
+3080, change both the proxy target and `web.listen` to `127.0.0.1:3080`.
+Create the password file outside the web root and allow only the administrator
+and web-server account to read it. Use `htpasswd -c` only for the first user.
+Validate the complete configuration with `nginx -t` or `apachectl configtest`
+before reloading the proxy. On SELinux systems, check the audit log and configure
+the distribution's HTTP proxy network-connect policy if loopback connections
+are denied; keep SELinux enabled.
+
+The packages install these examples under
+`/usr/share/doc/postfix-report/examples/`; `make install` uses
+`<prefix>/share/doc/postfix-report/examples/`.
+The shorter profiles `deploy/nginx/postfix-report-web.conf` and
+`deploy/apache/postfix-report-web.conf` remain available. Use a reverse-proxy
+profile **instead of** the static Alias profile.
 HTTPS and authentication must cover the whole prefix, including job creation,
 status, script and download routes. Forward the Basic Authorization header so
 job ownership also distinguishes users when credentials change in a browser.
