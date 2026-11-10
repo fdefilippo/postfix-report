@@ -118,7 +118,7 @@ func TestSingleLineHeaderAndArchivePageBreaks(t *testing.T) {
 		t.Fatal(err)
 	}
 	styles, err := io.ReadAll(f)
-	f.Close()
+	_ = f.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestSelfContainedContainersAndPDFText(t *testing.T) {
 			t.Fatal(err)
 		}
 		b, err := io.ReadAll(r)
-		r.Close()
+		_ = r.Close()
 		if err != nil {
 			t.Fatal(err)
 		}

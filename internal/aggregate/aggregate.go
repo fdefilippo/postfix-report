@@ -115,12 +115,16 @@ func (ag *Aggregator) RecomputeDirty(ctx context.Context) ([]string, error) {
 	for rows.Next() {
 		var d string
 		if err := rows.Scan(&d); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, err
 		}
 		days = append(days, d)
 	}
-	rows.Close()
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return nil, err
+	}
 	for _, d := range days {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -220,13 +224,13 @@ func (ag *Aggregator) Compare(day string) ([]string, error) {
 		var m string
 		var v float64
 		if err := rows.Scan(&h, &m, &v); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, err
 		}
 		stored[[2]any{h, m}] = v
 	}
 	err = rows.Err()
-	rows.Close()
+	_ = rows.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -252,13 +256,13 @@ func (ag *Aggregator) Compare(day string) ([]string, error) {
 		var dim, key string
 		var value int64
 		if err := rows.Scan(&dim, &key, &value); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, err
 		}
 		storedDim[[2]string{dim, key}] = value
 	}
 	err = rows.Err()
-	rows.Close()
+	_ = rows.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +289,7 @@ func accAccepted(tx queryer, a *dayAcc, lo, hi int64) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var ts, size, nrcpt int64
 		var origin, sender, ip, user string
@@ -326,7 +330,7 @@ func accNotifications(tx queryer, a *dayAcc, lo, hi int64) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var ts int64
 		if err := rows.Scan(&ts); err != nil {
@@ -344,7 +348,7 @@ func accDeliveries(tx queryer, a *dayAcc, lo, hi int64) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var ts int64
 		var agent, rcpt, relay, dsn, status, text, class, origin string
@@ -412,17 +416,21 @@ func accExpired(tx queryer, a *dayAcc, lo, hi int64) error {
 	for rows.Next() {
 		var ts int64
 		if err := rows.Scan(&ts); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return err
 		}
 		a.add(ts, MExpiredMsg, 1)
 	}
-	rows.Close()
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return err
+	}
 	rows, err = tx.Query(`SELECT final_ts FROM recipients WHERE status='expired' AND final_ts >= ? AND final_ts < ?`, lo, hi)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var ts int64
 		if err := rows.Scan(&ts); err != nil {
@@ -440,7 +448,7 @@ func accRejects(tx queryer, a *dayAcc, lo, hi int64) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var ts, code int64
 		var action, stage, dsn, reason, ip string
@@ -475,7 +483,7 @@ func accSecurity(tx queryer, a *dayAcc, lo, hi int64) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var ts int64
 		var kind, ip string
@@ -503,7 +511,7 @@ func accSessions(tx queryer, a *dayAcc, lo, hi int64) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var ts, tls int64
 		var kind, proc, text string

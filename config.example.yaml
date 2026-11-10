@@ -33,6 +33,9 @@ correlation:
   reinject_uids: [97]
   # Distanza massima tra accettazione dell'originale e della reiniezione.
   reinject_window: 120s
+  # Attesa massima del message-id di una notifica annunciata dal bounce.
+  # Secondi interi, da 1s a stale_after; cambiarla ricalcola lo storico.
+  notification_window: 60s
   # Istanze di coda senza eventi per questo tempo sono chiuse come "stale".
   stale_after: 168h
 

@@ -33,7 +33,7 @@ func BenchmarkImportPipeline(b *testing.B) {
 			b.Fatal(err)
 		}
 		b.StopTimer()
-		a.Close()
+		_ = a.Close()
 		b.StartTimer()
 	}
 	b.ReportMetric(float64(lines)*float64(b.N)/b.Elapsed().Seconds(), "lines/s")

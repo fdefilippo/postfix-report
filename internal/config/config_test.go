@@ -187,3 +187,15 @@ func TestYAMLCompatibility(t *testing.T) {
 		t.Fatal("duplicate key accepted")
 	}
 }
+
+func TestNotificationWindowValidation(t *testing.T) {
+	for _, value := range []string{"0s", "-1s", "1500ms", "169h"} {
+		if _, err := Load(write(t, "correlation:\n  notification_window: "+value+"\n")); err == nil {
+			t.Errorf("accepted %s", value)
+		}
+	}
+	c, err := Load(write(t, "correlation:\n  notification_window: 120s\n"))
+	if err != nil || c.Correlation.NotificationWindow.Seconds() != 120 {
+		t.Fatalf("window: %+v %v", c, err)
+	}
+}

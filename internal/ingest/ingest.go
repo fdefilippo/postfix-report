@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fdefilippo/postfix-report/internal/config"
@@ -33,6 +34,12 @@ import (
 
 // batchLines is the number of lines committed per transaction.
 const batchLines = 5000
+
+// MaxLogLineBytes includes the newline when present; oversized lines fail
+// the file import without parsing a truncated prefix or advancing its checkpoint.
+const MaxLogLineBytes = 1 << 20
+
+var ErrLineTooLong = errors.New("log line exceeds maximum length")
 
 // Importer imports log files into the database.
 type Importer struct {
@@ -224,7 +231,7 @@ func (im *Importer) orderByFirstTimestamp(paths []string) []string {
 			if h, err := logparse.ParseHeader(lf.firstLine(), clock); err == nil {
 				ts = h.TS.Unix()
 			}
-			lf.Close()
+			_ = lf.Close()
 		}
 		items = append(items, item{p, ts})
 	}
@@ -252,7 +259,7 @@ func (im *Importer) findSource(ctx context.Context, lf *logFile) (*sourceRow, er
 		var size int
 		var fp string
 		if err := rows.Scan(&id, &size, &fp); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, err
 		}
 		if lf.fingerprint(size) == fp {
@@ -260,7 +267,7 @@ func (im *Importer) findSource(ctx context.Context, lf *logFile) (*sourceRow, er
 		}
 	}
 	err = rows.Err()
-	rows.Close()
+	_ = rows.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +406,7 @@ func (im *Importer) importFile(ctx context.Context, importID int64, path string,
 	if err != nil {
 		return fr, err
 	}
-	defer lf.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(lf.Close)
 	src, err := im.findSource(ctx, lf)
 	if err != nil {
 		return fr, err
@@ -463,14 +470,14 @@ func (fi *fileImport) run(ctx context.Context) error {
 	}
 	defer func() {
 		if fi.tx != nil {
-			fi.tx.Rollback()
+			_ = fi.tx.Rollback()
 		}
 	}()
 	pending := 0
 	for {
-		line, rerr := br.ReadString('\n')
+		line, rerr := readLogLine(ctx, br)
 		if rerr != nil && rerr != io.EOF {
-			return rerr
+			return fmt.Errorf("offset %d: %w", offset, rerr)
 		}
 		complete := len(line) > 0 && line[len(line)-1] == '\n'
 		if !complete && !(rerr == io.EOF && fi.lf.compressed && len(line) > 0) {
@@ -513,6 +520,23 @@ func (fi *fileImport) run(ctx context.Context) error {
 	return fi.commit(offset, fi.lf.compressed)
 }
 
+func readLogLine(ctx context.Context, br *bufio.Reader) (string, error) {
+	var line strings.Builder
+	for {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		part, err := br.ReadSlice('\n')
+		if line.Len()+len(part) > MaxLogLineBytes {
+			return "", fmt.Errorf("%w (%d bytes)", ErrLineTooLong, MaxLogLineBytes)
+		}
+		_, _ = line.Write(part)
+		if err != bufio.ErrBufferFull {
+			return line.String(), err
+		}
+	}
+}
+
 func (fi *fileImport) begin() (*sql.Stmt, error) {
 	tx, err := fi.im.DB.Begin()
 	if err != nil {
@@ -520,7 +544,7 @@ func (fi *fileImport) begin() (*sql.Stmt, error) {
 	}
 	stmt, err := tx.Prepare(insertEvent)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return nil, err
 	}
 	fi.tx = tx
@@ -697,28 +721,28 @@ func (fi *fileImport) commit(offset int64, complete bool) error {
 	}
 	for i := range fi.closed {
 		if err := save(fi.closed[i].host, &fi.closed[i]); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 	}
 	fi.closed = nil
 	for host, s := range fi.segs {
 		if err := save(host, s); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 	}
 	for proc, u := range fi.unknown {
 		if _, err := tx.Exec(`INSERT INTO unknown_lines(source_id, proc, count, sample) VALUES(?,?,?,?)
 			ON CONFLICT(source_id, proc) DO UPDATE SET count = count + excluded.count`, fi.src.id, proc, u.count, u.sample); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 	}
 	fi.unknown = map[string]*unknownAgg{}
 	// Days with new lines are marked dirty with the lines themselves.
 	if err := store.MarkDirtyDays(tx, fi.days); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return err
 	}
 	fi.days = map[string]bool{}
@@ -738,7 +762,7 @@ func (fi *fileImport) commit(offset int64, complete bool) error {
 		compressed=?, file_size=?, file_mtime=?, complete=?, updated_at=?, checkpoint_hash=? WHERE id=?`,
 		offset, lines, first, last, string(cs), fi.src.tail.dump(), fi.lf.compressed, fi.lf.size, fi.lf.mtime,
 		complete, time.Now().Unix(), hex.EncodeToString(fi.lf.digest.Sum(nil)), fi.src.id); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return err
 	}
 	if err := tx.Commit(); err != nil {

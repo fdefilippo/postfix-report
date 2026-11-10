@@ -46,7 +46,7 @@ func (c *cli) serveCmd(ctx context.Context, path string, overrides map[string]st
 
 func (c *cli) exportCmd(ctx context.Context, s *selection, archive *exporter.ArchiveSelection, format, output string) int {
 	if (format != "pdf" && format != "odt") || output == "" || filepath.Ext(output) != "."+format {
-		fmt.Fprintln(c.stderr, "export: specificare --format pdf|odt e --output FILE con estensione corrispondente")
+		_, _ = fmt.Fprintln(c.stderr, "export: specificare --format pdf|odt e --output FILE con estensione corrispondente")
 		return exitUsage
 	}
 	n := 0
@@ -56,7 +56,7 @@ func (c *cli) exportCmd(ctx context.Context, s *selection, archive *exporter.Arc
 			var err error
 			p, err = period.Parse(k, key, c.cfg.Location)
 			if err != nil {
-				fmt.Fprintln(c.stderr, err)
+				_, _ = fmt.Fprintln(c.stderr, err)
 				return exitUsage
 			}
 			n++
@@ -64,19 +64,19 @@ func (c *cli) exportCmd(ctx context.Context, s *selection, archive *exporter.Arc
 	}
 	if archive != nil {
 		if err := archive.Validate(c.cfg); err != nil {
-			fmt.Fprintln(c.stderr, err)
+			_, _ = fmt.Fprintln(c.stderr, err)
 			return exitUsage
 		}
 	}
 	if (archive == nil && n != 1) || (archive != nil && n != 0) {
-		fmt.Fprintln(c.stderr, "export: specificare un solo periodo oppure --all")
+		_, _ = fmt.Fprintln(c.stderr, "export: specificare un solo periodo oppure --all")
 		return exitUsage
 	}
 	if _, err := os.Lstat(output); err == nil {
-		fmt.Fprintln(c.stderr, "export: il file di destinazione esiste già")
+		_, _ = fmt.Fprintln(c.stderr, "export: il file di destinazione esiste già")
 		return exitError
 	} else if !os.IsNotExist(err) {
-		fmt.Fprintln(c.stderr, err)
+		_, _ = fmt.Fprintln(c.stderr, err)
 		return exitError
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -95,7 +95,7 @@ func (c *cli) exportCmd(ctx context.Context, s *selection, archive *exporter.Arc
 		c.log.Error("export", "error", err)
 		return exitError
 	}
-	fmt.Fprintln(c.stdout, "documento esportato:", output)
+	_, _ = fmt.Fprintln(c.stdout, "documento esportato:", output)
 	return exitOK
 }
 
@@ -109,8 +109,8 @@ func writeNewDocument(path string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
-	defer f.Close()
+	defer func(path string) { _ = os.Remove(path) }(f.Name())
+	defer func(cleanup func() error) { _ = cleanup() }(f.Close)
 	if _, err = f.Write(data); err != nil {
 		return err
 	}

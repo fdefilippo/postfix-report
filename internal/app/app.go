@@ -47,7 +47,7 @@ func Open(cfg *config.Config, log *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	if err := syscall.Flock(int(lf.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		lf.Close()
+		_ = lf.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) {
 			return nil, ErrLocked
 		}
@@ -55,7 +55,7 @@ func Open(cfg *config.Config, log *slog.Logger) (*App, error) {
 	}
 	db, err := store.Open(cfg.Database.Path)
 	if err != nil {
-		lf.Close()
+		_ = lf.Close()
 		return nil, err
 	}
 	return &App{Cfg: cfg, DB: db, Log: log, lock: lf}, nil
@@ -77,8 +77,8 @@ func dirOf(p string) string {
 func (a *App) Close() error {
 	err := a.DB.Close()
 	if a.lock != nil {
-		syscall.Flock(int(a.lock.Fd()), syscall.LOCK_UN)
-		a.lock.Close()
+		_ = syscall.Flock(int(a.lock.Fd()), syscall.LOCK_UN)
+		_ = a.lock.Close()
 	}
 	return err
 }

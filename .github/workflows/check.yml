@@ -1,0 +1,48 @@
+# Copyright (C) 2026 Francesco Defilippo <francesco@defilippo.org>
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: checks
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.3"
+          cache: true
+      - name: Prepare temporary directory
+        run: |
+          mkdir -p "$HOME/tmp/postfix-report-ci"
+          echo "TMPDIR=$HOME/tmp/postfix-report-ci" >> "$GITHUB_ENV"
+          echo "GOTMPDIR=$HOME/tmp/postfix-report-ci" >> "$GITHUB_ENV"
+      - name: Require browser for HTML tests
+        run: google-chrome --version
+      - name: Install pinned analysis tools
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Unit, integration, browser, vet and formatting checks
+        run: make check
+      - name: Check error handling
+        run: make lint
+      - name: Race checks on the short suite
+        run: make test-race
+      - name: Known reachable vulnerabilities
+        run: make vulncheck

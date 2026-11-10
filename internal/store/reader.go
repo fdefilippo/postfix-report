@@ -7,10 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net/url"
 	"os"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -18,7 +15,10 @@ import (
 // OpenReader opens an existing database without creating or migrating it.
 // WAL is mutable: immutable=1 must never be used for this reader.
 func OpenReader(ctx context.Context, path string) (*DB, error) {
-	u := url.URL{Scheme: "file", Path: path}
+	u, err := databaseURL(path)
+	if err != nil {
+		return nil, err
+	}
 	v := u.Query()
 	v.Set("mode", "ro")
 	v.Set("_txlock", "deferred")
@@ -30,7 +30,7 @@ func OpenReader(ctx context.Context, path string) (*DB, error) {
 		return nil, err
 	}
 	sdb.SetMaxOpenConns(1)
-	fail := func(err error) (*DB, error) { sdb.Close(); return nil, err }
+	fail := func(err error) (*DB, error) { _ = sdb.Close(); return nil, err }
 	if err = sdb.PingContext(ctx); err != nil {
 		return fail(err)
 	}
@@ -38,14 +38,9 @@ func OpenReader(ctx context.Context, path string) (*DB, error) {
 	if err = sdb.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&version); err != nil {
 		return fail(err)
 	}
-	entries, err := migrationFS.ReadDir("migrations")
+	want, err := LatestSchemaVersion()
 	if err != nil {
 		return fail(err)
-	}
-	want := 0
-	for _, e := range entries {
-		n, _ := strconv.Atoi(strings.SplitN(e.Name(), "_", 2)[0])
-		want = max(want, n)
 	}
 	if version != want {
 		return fail(fmt.Errorf("database schema is %d, expected %d: run update with a matching binary", version, want))
@@ -64,7 +59,7 @@ func ReadLock(ctx context.Context, path string) (func(), error) {
 	defer timer.Stop()
 	for {
 		if err := ctx.Err(); err != nil {
-			f.Close()
+			_ = f.Close()
 			return nil, err
 		}
 		err = syscall.Flock(int(f.Fd()), syscall.LOCK_SH|syscall.LOCK_NB)
@@ -72,12 +67,12 @@ func ReadLock(ctx context.Context, path string) (func(), error) {
 			return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); _ = f.Close() }, nil
 		}
 		if err != syscall.EWOULDBLOCK && err != syscall.EAGAIN {
-			f.Close()
+			_ = f.Close()
 			return nil, err
 		}
 		select {
 		case <-ctx.Done():
-			f.Close()
+			_ = f.Close()
 			return nil, ctx.Err()
 		case <-timer.C:
 		}

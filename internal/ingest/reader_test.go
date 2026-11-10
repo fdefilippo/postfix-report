@@ -21,7 +21,7 @@ func TestCheckpointHashCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer lf.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(lf.Close)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := lf.validateCheckpoint(ctx, 8192, "wrong"); !errors.Is(err, context.Canceled) {

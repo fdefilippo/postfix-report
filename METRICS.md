@@ -136,3 +136,23 @@ autunnale in Europe/Rome. La copertura di un'ora non deriva dalla frazione
 complessiva della settimana. Zero secondi osservati significa `missing` e
 valore grafico `null`; una fascia osservata senza eventi mostra zero. Le
 classificazioni `partial` e `complete` usano questo denominatore per fascia.
+
+### Finestra delle notifiche
+
+`correlation.notification_window` (default **60s**) limita l'attesa tra una
+riga `postfix/bounce` che annuncia un nuovo Queue ID e il suo primo `message-id`,
+nel medesimo host e istanza Postfix. L'estremo è incluso. La finestra è distinta
+da `reinject_window`; deve essere espressa in secondi interi, almeno 1s e non
+superiore a `stale_after`. Il valore predefinito conserva i conteggi precedenti.
+Una modifica forza la ricorrelazione di tutti gli host al prossimo import/update,
+anche senza nuove righe, e invalida gli aggregati coinvolti. Un rebuild usa lo
+stesso valore. Se il figlio è già aperto quando arriva l'annuncio, il collegamento
+esplicito al Queue ID viene mantenuto senza applicare la finestra di attesa.
+
+La ricorrelazione registra uno stato persistente prima di modificare il primo
+host, sia durante l'incrementale sia durante un rebuild. Se l'operazione si
+interrompe dopo aver elaborato soltanto alcuni host, il successivo import/update
+ricalcola tutti gli host anche quando la configurazione è stata riportata al
+valore precedente. Il valore completato viene riconosciuto insieme alla rimozione
+dello stato pendente, soltanto dopo l'ultimo host. `verify` segnala come errore
+una ricorrelazione rimasta pendente.

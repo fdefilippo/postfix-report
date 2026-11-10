@@ -5,6 +5,8 @@ package ingest_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -39,7 +41,7 @@ func itoa(i int) string {
 
 func importer(t *testing.T, env *testutil.Env) *ingest.Importer {
 	a := env.Open(t)
-	t.Cleanup(func() { a.Close() })
+	t.Cleanup(func() { _ = a.Close() })
 	// import_files rows reference an import run.
 	for i := 0; i < 3; i++ {
 		if _, err := a.DB.Exec(`INSERT INTO imports(command, started_at, status) VALUES('test', 0, 'ok')`); err != nil {
@@ -217,5 +219,48 @@ func TestLegacyLongCheckpointReplaysOnce(t *testing.T) {
 	third, err := im.Import(context.Background(), 3, []string{p})
 	if err != nil || third.Events != 0 || third.Lines != 0 {
 		t.Fatalf("legacy repeat: %+v %v", third, err)
+	}
+}
+
+func TestLogLineLimitAndRetry(t *testing.T) {
+	for _, ext := range []string{".log", ".gz"} {
+		for _, extra := range []int{0, 1} {
+			for _, newline := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/extra%d/newline%t", ext, extra, newline), func(t *testing.T) {
+					env := testutil.NewEnv(t)
+					im := importer(t, env)
+					p := env.LogPath("mail" + ext)
+					mt := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
+					suffix := ""
+					if newline {
+						suffix = "\n"
+					}
+					body := strings.Repeat("x", ingest.MaxLogLineBytes+extra-len(suffix)) + suffix
+					testutil.WriteFile(t, p, line(1)+"\n"+body, mt)
+					_, err := im.Import(context.Background(), 1, []string{p})
+					if extra == 1 {
+						if !errors.Is(err, ingest.ErrLineTooLong) {
+							t.Fatalf("expected line limit: %v", err)
+						}
+						var off int64
+						if err := im.DB.QueryRow(`SELECT offset FROM sources LIMIT 1`).Scan(&off); err != nil || off != 0 {
+							t.Fatalf("uncommitted checkpoint %d %v", off, err)
+						}
+						// Retrying a failed source after replacing the bad suffix preserves
+						// complete-event identity and never imports a truncated prefix.
+						testutil.WriteFile(t, p, line(1)+"\n"+line(2)+"\n", mt)
+						if _, err := im.Import(context.Background(), 2, []string{p}); err != nil {
+							t.Fatal(err)
+						}
+						var n int
+						if err := im.DB.QueryRow(`SELECT COUNT(*) FROM events`).Scan(&n); err != nil || n != 2 {
+							t.Fatalf("events=%d %v", n, err)
+						}
+					} else if err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+		}
 	}
 }

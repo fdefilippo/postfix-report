@@ -58,7 +58,7 @@ func ChartPNG(ctx context.Context, c Chart) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer face.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(face.Close)
 	im := image.NewRGBA(image.Rect(0, 0, w, h))
 	draw.Draw(im, im.Bounds(), image.White, image.Point{}, draw.Src)
 	ink := color.RGBA{25, 35, 45, 255}

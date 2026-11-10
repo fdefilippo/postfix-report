@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -127,7 +128,7 @@ func TestCLIConcurrentRunIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if code, _, _ := runCLI(t, "-config", cfgPath, "update"); code != exitLocked {
 		t.Errorf("concurrent update: exit %d, want %d", code, exitLocked)
 	}
@@ -143,5 +144,28 @@ func TestCLIImportDirectory(t *testing.T) {
 	code, out, _ = runCLI(t, "-config", cfg, "update")
 	if code != exitOK || !strings.Contains(out, "eventi correlati: 0") {
 		t.Errorf("update after import: %d %s", code, out)
+	}
+}
+
+// JSON stats are a machine-readable result: a broken output stream must fail
+// the command instead of acknowledging a partial document as successful.
+type failedOutput struct{ err error }
+
+func (w failedOutput) Write([]byte) (int, error) { return 0, w.err }
+
+func TestStatsJSONWriteFailure(t *testing.T) {
+	cfg, _ := e2e(t)
+	if code, _, stderr := runCLI(t, "-config", cfg, "import", "--directory", filepath.Join(filepath.Dir(cfg), "log")); code != exitOK {
+		t.Fatalf("import %d %s", code, stderr)
+	}
+	if code, _, stderr := runCLI(t, "-config", cfg, "stats", "--json"); code != exitOK {
+		t.Fatalf("baseline %d %s", code, stderr)
+	}
+	var stderr bytes.Buffer
+	if code := run([]string{"-config", cfg, "stats", "--json"}, failedOutput{errors.New("output unavailable")}, &stderr); code != exitError {
+		t.Fatalf("write failure exit=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "output unavailable") {
+		t.Fatal("output failure not reported")
 	}
 }

@@ -44,7 +44,9 @@ func newBrowser(t *testing.T, ts *httptest.Server, prefix string) *browser {
 		t.Fatalf("session %d %s", code, data)
 	}
 	var v map[string]string
-	json.Unmarshal(data, &v)
+	if err := json.Unmarshal(data, &v); err != nil {
+		b.t.Fatal(err)
+	}
 	b.csrf = v["csrf"]
 	return b
 }
@@ -60,7 +62,7 @@ func (b *browser) call(method, rel string, data []byte) (int, []byte) {
 	if err != nil {
 		b.t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(resp.Body.Close)
 	out, err := io.ReadAll(resp.Body)
 	if err != nil {
 		b.t.Fatal(err)
@@ -70,7 +72,11 @@ func (b *browser) call(method, rel string, data []byte) (int, []byte) {
 func (b *browser) start(format string) (int, string) {
 	code, data := b.call("POST", "/api/exports", []byte(`{"kind":"day","key":"2026-10-25","format":"`+format+`"}`))
 	var v map[string]string
-	json.Unmarshal(data, &v)
+	if code == http.StatusAccepted {
+		if err := json.Unmarshal(data, &v); err != nil {
+			b.t.Fatal(err)
+		}
+	}
 	return code, v["id"]
 }
 func (b *browser) ready(id string) {
@@ -84,7 +90,9 @@ func (b *browser) ready(id string) {
 			b.t.Fatalf("job %d %s", code, data)
 		}
 		var v map[string]string
-		json.Unmarshal(data, &v)
+		if err := json.Unmarshal(data, &v); err != nil {
+			b.t.Fatal(err)
+		}
 		if v["state"] == "ready" {
 			return
 		}
@@ -119,7 +127,7 @@ func serverFixture(t *testing.T, prefix string) (*testutil.Env, *Server, *httpte
 	if _, err = g.GenerateAll(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	a.Close()
+	_ = a.Close()
 	ptr := new(atomic.Pointer[config.Config])
 	ptr.Store(e.Cfg)
 	s, err := New(context.Background(), e.Cfg, func() (*config.Config, error) { return ptr.Load(), nil }, "test", e.Log)
@@ -127,7 +135,7 @@ func serverFixture(t *testing.T, prefix string) (*testutil.Env, *Server, *httpte
 		t.Fatal(err)
 	}
 	ts := httptest.NewServer(s)
-	t.Cleanup(func() { ts.Close(); s.Close() })
+	t.Cleanup(func() { ts.Close(); _ = s.Close() })
 	return e, s, ts, ptr
 }
 
@@ -254,7 +262,7 @@ func TestOriginCSRFAndRequestValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != 403 {
 		t.Fatal("cross-origin accepted")
 	}
@@ -264,7 +272,7 @@ func TestOriginCSRFAndRequestValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != 403 {
 		t.Fatal("untrusted host accepted")
 	}
@@ -332,7 +340,9 @@ func TestPrivacyChangeInvalidatesResultsAndOldHTML(t *testing.T) {
 func TestStaticFilesCannotEscapeOrExposeDatabase(t *testing.T) {
 	e, _, ts, _ := serverFixture(t, "/")
 	secret := filepath.Join(e.Dir, "secret")
-	os.WriteFile(secret, []byte("private"), 0600)
+	if err := os.WriteFile(secret, []byte("private"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.Symlink(secret, filepath.Join(e.Cfg.Output.Directory, "daily", "2026-10-26.html")); err != nil {
 		t.Fatal(err)
 	}
@@ -357,9 +367,15 @@ func testBrowserExport(t *testing.T, pagePath string) {
 	if testing.Short() {
 		t.Skip("headless browser skipped in short mode")
 	}
-	chrome, err := exec.LookPath("chromium")
-	if err != nil {
-		t.Skip("chromium not installed")
+	chrome := ""
+	for _, candidate := range []string{"chromium", "chromium-browser", "google-chrome"} {
+		if path, err := exec.LookPath(candidate); err == nil {
+			chrome = path
+			break
+		}
+	}
+	if chrome == "" {
+		t.Skip("no headless browser available")
 	}
 	_, s, _, _ := serverFixture(t, "/")
 	var downloaded atomic.Bool
@@ -378,7 +394,7 @@ func testBrowserExport(t *testing.T, pagePath string) {
 		}
 		if r.URL.Path == "/browser-test.js" {
 			w.Header().Set("Content-Type", "application/javascript")
-			io.WriteString(w, `function begin(){
+			_, _ = io.WriteString(w, `function begin(){
 var button = document.querySelector('[data-export="pdf"]');
 if(!button || button.disabled){setTimeout(begin,50);return;}
 button.click();
@@ -428,7 +444,7 @@ complete(); }); } begin();`)
 				w.Header()[k] = v
 			}
 			w.WriteHeader(rec.Code)
-			w.Write(bytes.Replace(rec.Body.Bytes(), []byte("</body>"), []byte(`<script src="/browser-test.js" defer></script></body>`), 1))
+			_, _ = w.Write(bytes.Replace(rec.Body.Bytes(), []byte("</body>"), []byte(`<script src="/browser-test.js" defer></script></body>`), 1))
 			return
 		}
 		if strings.HasSuffix(r.URL.Path, "/download") {

@@ -39,11 +39,11 @@ func openLog(path string) (*logFile, error) {
 	}
 	st, err := f.Stat()
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return nil, err
 	}
 	if !st.Mode().IsRegular() {
-		f.Close()
+		_ = f.Close()
 		return nil, fmt.Errorf("%s: not a regular file", path)
 	}
 	lf := &logFile{path: path, f: f, size: st.Size(), mtime: st.ModTime().Unix()}
@@ -53,7 +53,7 @@ func openLog(path string) (*logFile, error) {
 	if len(magic) == 2 && magic[0] == 0x1f && magic[1] == 0x8b {
 		gz, err := gzip.NewReader(br)
 		if err != nil {
-			f.Close()
+			_ = f.Close()
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}
 		lf.gz = gz
@@ -63,7 +63,7 @@ func openLog(path string) (*logFile, error) {
 	head := make([]byte, FingerprintLen)
 	n, err := io.ReadFull(r, head)
 	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
-		f.Close()
+		_ = f.Close()
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	lf.head = head[:n]
@@ -73,7 +73,7 @@ func openLog(path string) (*logFile, error) {
 
 func (lf *logFile) Close() error {
 	if lf.gz != nil {
-		lf.gz.Close()
+		_ = lf.gz.Close()
 	}
 	return lf.f.Close()
 }

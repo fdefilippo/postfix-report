@@ -43,7 +43,7 @@ func realLines(t *testing.T) []string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(f.Close)
 	var lines []string
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 1<<20), 1<<20)
@@ -55,7 +55,7 @@ func realLines(t *testing.T) []string {
 
 func checkReal(t *testing.T, env *testutil.Env) {
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	for day, want := range realExpected {
 		expect(t, totals(t, a, day), want)
 	}
@@ -81,7 +81,7 @@ func TestRealLogRegression(t *testing.T) {
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
-	a.Close()
+	_ = a.Close()
 	checkReal(t, env)
 }
 
@@ -107,7 +107,7 @@ func TestRealLogIncrementalWithRotation(t *testing.T) {
 		if _, err := a.Import(ctx, "update", paths); err != nil {
 			t.Fatal(err)
 		}
-		a.Close()
+		_ = a.Close()
 		if i == rotateAt {
 			// logrotate: compress the current file, start a new one.
 			testutil.WriteFile(t, env.LogPath("maillog-1.gz"), strings.Join(lines[start:c], "\n")+"\n", time.Time{})

@@ -22,7 +22,7 @@ func TestPrivacyReconcilesDisabledArchive(t *testing.T) {
 			t.Run(mode+"/"+string(kind), func(t *testing.T) {
 				env := testutil.NewEnv(t)
 				a := env.Open(t)
-				defer a.Close()
+				defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 				l := testutil.NewLog(t).Add("2026-10-12 10:00:00", "smtpd", "A111111111: client=app.example.org[192.0.2.123], sasl_method=LOGIN, sasl_username=private-user").Add("2026-10-12 10:00:00", "qmgr", "A111111111: from=<sender@example.org>, size=100, nrcpt=1 (queue active)")
 				path := env.LogPath("mail")
 				testutil.WriteFile(t, path, l.String(), time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC))
@@ -84,6 +84,12 @@ func TestPrivacyReconcilesDisabledArchive(t *testing.T) {
 					t.Fatal(err)
 				}
 				for _, p := range pages {
+					if p.Kind == kind {
+						if _, err := os.Stat(filepath.Join(env.Cfg.Output.Directory, p.Path())); !os.IsNotExist(err) {
+							t.Fatalf("disabled page remains: %s (%v)", p.Path(), err)
+						}
+						continue
+					}
 					body := read(t, env, p.Path())
 					if strings.Contains(body, "private-user") || strings.Contains(body, "192.0.2.123") {
 						t.Errorf("unmasked managed page %s", p.Path())
@@ -135,6 +141,9 @@ func TestPrivacyRetryAfterPartialWriteFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range pages {
+		if p.Kind == period.Week {
+			continue
+		}
 		body := read(t, env, p.Path())
 		if strings.Contains(body, "192.0.2.10") {
 			t.Errorf("raw IP after retry: %s", p.Path())
@@ -150,9 +159,8 @@ func TestPrivacyRetryAfterPartialWriteFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range pages {
-		body := read(t, env, p.Path())
-		if strings.Contains(body, "192.0.2.10") {
-			t.Errorf("raw IP with all types disabled: %s", p.Path())
+		if _, err := os.Stat(filepath.Join(env.Cfg.Output.Directory, p.Path())); !os.IsNotExist(err) {
+			t.Fatalf("disabled page remains: %s (%v)", p.Path(), err)
 		}
 	}
 }

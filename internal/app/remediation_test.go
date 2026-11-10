@@ -16,7 +16,7 @@ func TestSameSecondBackfillMatchesRebuild(t *testing.T) {
 	env := testutil.NewEnv(t)
 	env.Cfg.Input.Year = 2026
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	active := testutil.NewLog(t).Add("2026-10-12 10:00:00", "qmgr", "A111111111: from=<a@example.org>, size=100, nrcpt=1 (queue active)")
 	prefix := testutil.NewLog(t).Add("2026-10-12 09:59:00", "anvil", "statistics: max cache size 1 at x").Add("2026-10-12 10:00:00", "smtpd", "A111111111: client=app.example.org[192.0.2.1]").Add("2026-10-12 10:00:00", "cleanup", "A111111111: message-id=<a@example.org>")
 	mt := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
@@ -53,7 +53,7 @@ func itoaRemediation(i int) string {
 func TestForwardAppendSameSecondAvoidsReplay(t *testing.T) {
 	env := testutil.NewEnv(t)
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	p := env.LogPath("mail")
 	mt := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
 	l := testutil.NewLog(t).Add("2026-10-12 10:00:00", "smtpd", "A111111111: client=app.example.org[192.0.2.1]")
@@ -79,9 +79,11 @@ func TestPendingNotificationRestartAndExpiry(t *testing.T) {
 	for _, tc := range []struct {
 		name, childTime string
 		notified        bool
-	}{{"within window", "2026-10-12 10:00:02", true}, {"expired", "2026-10-12 10:01:02", false}} {
+		window          time.Duration
+	}{{"within window", "2026-10-12 10:00:02", true, 60 * time.Second}, {"boundary", "2026-10-12 10:01:01", true, 60 * time.Second}, {"expired", "2026-10-12 10:01:02", false, 60 * time.Second}, {"extended", "2026-10-12 10:01:02", true, 120 * time.Second}, {"extended boundary", "2026-10-12 10:02:01", true, 120 * time.Second}, {"extended expired", "2026-10-12 10:02:02", false, 120 * time.Second}} {
 		t.Run(tc.name, func(t *testing.T) {
 			env := testutil.NewEnv(t)
+			env.Cfg.Correlation.NotificationWindow.Duration = tc.window
 			p := env.LogPath("mail")
 			mt := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
 			l := testutil.NewLog(t).Add("2026-10-12 10:00:00", "qmgr", "A111111111: from=<a@example.org>, size=100, nrcpt=1 (queue active)").Add("2026-10-12 10:00:01", "bounce", "A111111111: sender non-delivery notification: B111111111").Add("2026-10-12 10:00:01", "qmgr", "A111111111: removed")
@@ -100,7 +102,7 @@ func TestPendingNotificationRestartAndExpiry(t *testing.T) {
 			l.Add(tc.childTime, "cleanup", "B111111111: message-id=<bounce@example.org>").Add(tc.childTime, "qmgr", "B111111111: from=<>, size=100, nrcpt=1 (queue active)")
 			testutil.WriteFile(t, p, l.String(), mt)
 			a = env.Open(t)
-			defer a.Close()
+			defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 			if _, err := a.Import(ctx, "test", []string{p}); err != nil {
 				t.Fatal(err)
 			}
@@ -137,11 +139,11 @@ func TestPendingNotificationInstanceIsolation(t *testing.T) {
 	if _, err := a.Import(ctx, "test", []string{p}); err != nil {
 		t.Fatal(err)
 	}
-	a.Close()
+	_ = a.Close()
 	child := testutil.NewLog(t).Add("2026-10-12 10:00:02", "cleanup", "B111111111: message-id=<bounce@example.org>").Add("2026-10-12 10:00:02", "qmgr", "B111111111: from=<>, size=100, nrcpt=1 (queue active)").String()
 	testutil.WriteFile(t, p, first+child+strings.ReplaceAll(child, "postfix/", "postfix-other/"), mt)
 	a = env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{p}); err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +156,7 @@ func TestPendingNotificationInstanceIsolation(t *testing.T) {
 func TestUpgradeRecoversUnpersistedNotification(t *testing.T) {
 	env := testutil.NewEnv(t)
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	p := env.LogPath("mail")
 	mt := time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC)
 	l := testutil.NewLog(t).Add("2026-10-12 10:00:00", "qmgr", "A111111111: from=<a@example.org>, size=100, nrcpt=1 (queue active)").Add("2026-10-12 10:00:01", "bounce", "A111111111: sender non-delivery notification: B111111111")
@@ -174,5 +176,34 @@ func TestUpgradeRecoversUnpersistedNotification(t *testing.T) {
 	var n int
 	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM instances WHERE qid='B111111111' AND origin='notification'`).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("upgrade child=%d %v", n, err)
+	}
+}
+
+func TestNotificationWindowChangeReplaysHistory(t *testing.T) {
+	env := testutil.NewEnv(t)
+	p := env.LogPath("mail")
+	l := testutil.NewLog(t).Add("2026-10-12 10:00:00", "qmgr", "A111111111: from=<a@example.org>, size=100, nrcpt=1 (queue active)").Add("2026-10-12 10:00:01", "bounce", "A111111111: sender non-delivery notification: B111111111").Add("2026-10-12 10:01:02", "cleanup", "B111111111: message-id=<bounce@example.org>").Add("2026-10-12 10:01:02", "qmgr", "B111111111: from=<>, size=100, nrcpt=1 (queue active)")
+	testutil.WriteFile(t, p, l.String(), time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC))
+	a := env.Open(t)
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
+	for _, window := range []time.Duration{60 * time.Second, 120 * time.Second, 60 * time.Second} {
+		env.Cfg.Correlation.NotificationWindow.Duration = window
+		if _, err := a.Import(ctx, "test", []string{p}); err != nil {
+			t.Fatal(err)
+		}
+		var origin string
+		if err := a.DB.QueryRow(`SELECT origin FROM instances WHERE qid='B111111111'`).Scan(&origin); err != nil {
+			t.Fatal(err)
+		}
+		if (origin == "notification") != (window == 120*time.Second) {
+			t.Fatalf("window=%s origin=%s", window, origin)
+		}
+		before := totals(t, a, "2026-10-12")
+		if _, _, err := a.Rebuild(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if after := totals(t, a, "2026-10-12"); !reflect.DeepEqual(before, after) {
+			t.Fatalf("increment=%v rebuild=%v", before, after)
+		}
 	}
 }

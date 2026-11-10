@@ -34,7 +34,7 @@ func fixture(t *testing.T) *testutil.Env {
 	if _, err := a.AnonKey(); err != nil {
 		t.Fatal(err)
 	}
-	a.Close()
+	_ = a.Close()
 	return e
 }
 
@@ -102,7 +102,7 @@ func TestArchiveSelectionCompositionAndContainers(t *testing.T) {
 					t.Fatal(err)
 				}
 				content, err := io.ReadAll(f)
-				f.Close()
+				_ = f.Close()
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -143,7 +143,7 @@ func TestArchiveLimitsGapsAndWholePeriods(t *testing.T) {
 	if _, err := a.DB.Exec(`INSERT INTO segments(source_id,host,start_ts,end_ts) SELECT source_id,host,?,? FROM segments LIMIT 1`, hi, hi+60); err != nil {
 		t.Fatal(err)
 	}
-	a.Close()
+	_ = a.Close()
 	sel := exporter.ArchiveSelection{From: "2027-01-01", To: "2027-01-01"}
 	plan, err := exporter.PreviewArchive(context.Background(), e.Cfg, sel, "test")
 	if err != nil || plan.Total != 4 {
@@ -168,7 +168,7 @@ func TestArchiveLimitsGapsAndWholePeriods(t *testing.T) {
 	if _, err = a.DB.Exec(`UPDATE segments SET end_ts=?`, hi); err != nil {
 		t.Fatal(err)
 	}
-	a.Close()
+	_ = a.Close()
 	plan, err = exporter.PreviewArchive(context.Background(), e.Cfg, exporter.ArchiveSelection{}, "test")
 	if err != nil || plan.Allowed || plan.Total <= plan.Limit {
 		t.Fatalf("large archive: %+v %v", plan, err)
@@ -196,7 +196,7 @@ func TestArchiveRangeIncludesWholeCalendarReports(t *testing.T) {
 	if _, err := a.AnonKey(); err != nil {
 		t.Fatal(err)
 	}
-	a.Close()
+	_ = a.Close()
 	d, err := exporter.PrepareArchive(context.Background(), e.Cfg, exporter.ArchiveSelection{From: "2026-10-26", To: "2026-10-26"}, "test")
 	if err != nil {
 		t.Fatal(err)
@@ -299,7 +299,7 @@ func TestWriterCoordinationAndFailedImport(t *testing.T) {
 	if _, err = a.DB.Exec(`UPDATE imports SET status='failed'`); err != nil {
 		t.Fatal(err)
 	}
-	a.Close()
+	_ = a.Close()
 	if _, err := exporter.Prepare(context.Background(), e.Cfg, p, "test"); err == nil || !strings.Contains(err.Error(), "failed") {
 		t.Fatalf("failed import accepted: %v", err)
 	}
@@ -307,7 +307,7 @@ func TestWriterCoordinationAndFailedImport(t *testing.T) {
 	if _, err := a.DB.Exec(`UPDATE imports SET status='ok'`); err != nil {
 		t.Fatal(err)
 	}
-	a.Close()
+	_ = a.Close()
 	d, err := exporter.Prepare(context.Background(), e.Cfg, p, "test")
 	if err != nil {
 		t.Fatal(err)
@@ -317,7 +317,7 @@ func TestWriterCoordinationAndFailedImport(t *testing.T) {
 	if err != nil {
 		t.Fatal("snapshot retained writer lock", err)
 	}
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := document.Render(context.Background(), d, "pdf"); err != nil {
 		t.Fatal(fmt.Errorf("render while writer owns lock: %w", err))
 	}

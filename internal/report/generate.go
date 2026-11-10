@@ -45,7 +45,8 @@ var assetVer = func() string {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(h, "%s\n%d\n", path, len(data))
+		// hash.Hash writes never return an error.
+		_, _ = fmt.Fprintf(h, "%s\n%d\n", path, len(data))
 		h.Write(data)
 		return nil
 	})
@@ -232,12 +233,16 @@ func (g *Generator) GenerateDirty(ctx context.Context) (*Result, error) {
 	for rows.Next() {
 		var k, key string
 		if err := rows.Scan(&k, &key); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return res, err
 		}
 		dirty = append(dirty, [2]string{k, key})
 	}
-	rows.Close()
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return res, err
+	}
 	index := false
 	for _, d := range dirty {
 		if err := ctx.Err(); err != nil {
@@ -258,7 +263,9 @@ func (g *Generator) GenerateDirty(ctx context.Context) (*Result, error) {
 	}
 	if !index {
 		var n int
-		g.DB.QueryRow(`SELECT COUNT(*) FROM report_pages WHERE path='index.html'`).Scan(&n)
+		if err := g.DB.QueryRow(`SELECT COUNT(*) FROM report_pages WHERE path='index.html'`).Scan(&n); err != nil {
+			return res, err
+		}
 		_, statErr := os.Stat(filepath.Join(g.Cfg.Output.Directory, "index.html"))
 		index = n == 0 || statErr != nil
 	}
@@ -281,7 +288,7 @@ func (g *Generator) GenerateDirty(ctx context.Context) (*Result, error) {
 // configuration.
 func (g *Generator) layoutKey() (string, error) {
 	h := sha256.New()
-	fmt.Fprintf(h, "%s\n%+v\n%+v\n%+v\n%s\n", g.Version, g.Cfg.Output, g.Cfg.Reports, g.Cfg.Privacy, g.loc())
+	_, _ = fmt.Fprintf(h, "%s\n%+v\n%+v\n%+v\n%s\n", g.Version, g.Cfg.Output, g.Cfg.Reports, g.Cfg.Privacy, g.loc())
 	for _, f := range []fs.FS{templateFS, assetFS} {
 		err := fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
@@ -291,7 +298,7 @@ func (g *Generator) layoutKey() (string, error) {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(h, "%s %d\n", path, len(b))
+			_, _ = fmt.Fprintf(h, "%s %d\n", path, len(b))
 			h.Write(b)
 			return nil
 		})
@@ -452,19 +459,19 @@ func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 	ok := false
 	defer func() {
 		if !ok {
-			os.Remove(tmp)
+			_ = os.Remove(tmp)
 		}
 	}()
 	if _, err := f.Write(data); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	if err := f.Chmod(perm); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	if err := f.Sync(); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	if err := f.Close(); err != nil {
@@ -475,8 +482,11 @@ func WriteAtomic(path string, data []byte, perm os.FileMode) error {
 	}
 	ok = true
 	if d, err := os.Open(dir); err == nil {
-		d.Sync()
-		d.Close()
+		// The rename is atomic even where directory fsync is unsupported.
+		// Directory syncing is best effort; file Write/Sync/Close errors above
+		// are propagated before publication.
+		_ = d.Sync()
+		_ = d.Close()
 	}
 	return nil
 }
@@ -720,57 +730,141 @@ func (g *Generator) coverageDaysCard(days []query.Bucket) Block {
 		Block{Kind: "table", Table: tbl})
 }
 
-// reconcilePrivacy rewrites all registered pages, including disabled periods,
-// before acknowledging a privacy change. Keep the old marker on cancellation
-// or failure: a subsequent run retries the whole archive, with hash-based skips.
-// Files not owned by this database are never touched.
+// reconcilePrivacy reconciles the registered archive before acknowledging privacy
+// or publication changes. Files are removed before their database records; the
+// pending marker keeps interrupted work retryable even if settings are reverted.
+// Files outside the generated report namespace are kept.
 func (g *Generator) reconcilePrivacy(ctx context.Context, res *Result) error {
-	key := fmt.Sprintf("%t/%t/%s", g.Cfg.Privacy.AnonymizeEmail, g.Cfg.Privacy.AnonymizeIP, g.Cfg.Output.Directory)
-	old, err := store.GetMeta(g.DB, "report_privacy")
-	if err != nil || old == key {
+	privacy := fmt.Sprintf("%t/%t/%s", g.Cfg.Privacy.AnonymizeEmail, g.Cfg.Privacy.AnonymizeIP, g.Cfg.Output.Directory)
+	key := fmt.Sprintf("%s/%t/%t/%t/%t", privacy, g.Cfg.Reports.Daily, g.Cfg.Reports.Weekly, g.Cfg.Reports.Monthly, g.Cfg.Reports.Yearly)
+	old, err := store.GetMeta(g.DB, "report_publication")
+	if err != nil {
 		return err
 	}
-	// No previous marker and no anonymization: establish the baseline without
-	// rendering pages twice on the first generation or an ordinary upgrade.
-	if old == "" && !g.Cfg.Privacy.AnonymizeEmail && !g.Cfg.Privacy.AnonymizeIP {
-		return store.SetMeta(g.DB, "report_privacy", key)
+	pending, err := store.GetMeta(g.DB, "report_publication_pending")
+	if err != nil || (old == key && pending == "") {
+		return err
 	}
 	rows, err := g.DB.Query(`SELECT path, kind, key FROM report_pages ORDER BY path`)
 	if err != nil {
 		return err
 	}
-	type pageRef struct{ path, kind, key string }
+	type pageRef struct {
+		path string
+		p    period.Period
+	}
 	var pages []pageRef
+	hasIndex := false
 	for rows.Next() {
-		var p pageRef
-		if err := rows.Scan(&p.path, &p.kind, &p.key); err != nil {
-			rows.Close()
+		var path, kind, key string
+		if err := rows.Scan(&path, &kind, &key); err != nil {
+			_ = rows.Close()
 			return err
 		}
-		pages = append(pages, p)
+		if path == "index.html" && kind == "index" && key == "index" {
+			hasIndex = true
+			continue
+		}
+		p, err := period.Parse(period.Kind(kind), key, g.loc())
+		if err != nil || p.Path() != path {
+			_ = rows.Close()
+			return fmt.Errorf("invalid managed report page %q", path)
+		}
+		pages = append(pages, pageRef{path, p})
 	}
 	err = rows.Err()
-	rows.Close()
+	closeErr := rows.Close()
 	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	// An interrupted change may later be reverted to the acknowledged settings.
+	// Persist intent before filesystem mutations so that matching old markers
+	// cannot skip recovery or let the daemon serve a partially rewritten archive.
+	if err := g.DB.Tx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM meta WHERE key='report_layout'`); err != nil {
+			return err
+		}
+		_, err := tx.Exec(`INSERT OR REPLACE INTO meta(key,value) VALUES('report_publication_pending',?)`, key)
+		return err
+	}); err != nil {
 		return err
 	}
 	for _, ref := range pages {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if ref.path == "index.html" && ref.kind == "index" && ref.key == "index" {
-			if err := g.writeIndex(res); err != nil {
-				return err
-			}
+		if g.enabled(ref.p.Kind) {
 			continue
 		}
-		p, err := period.Parse(period.Kind(ref.kind), ref.key, g.loc())
-		if err != nil || p.Path() != ref.path {
-			return fmt.Errorf("invalid managed report page %q", ref.path)
+		path := filepath.Join(g.Cfg.Output.Directory, ref.path)
+		info, err := os.Lstat(path)
+		if err == nil && info.IsDir() {
+			return fmt.Errorf("managed report is a directory: %s", ref.path)
+		}
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		if _, err := g.DB.Exec(`DELETE FROM report_pages WHERE path=?`, ref.path); err != nil {
+			return err
+		}
+	}
+	// Regenerate surviving navigation even for GenerateOne. Recovery also needs
+	// the full enabled archive: an interrupted retirement already deleted some
+	// registrations, and the user may have re-enabled those periods since then.
+	var rewrite []period.Period
+	seen := map[string]bool{}
+	for _, ref := range pages {
+		if g.enabled(ref.p.Kind) {
+			rewrite = append(rewrite, ref.p)
+			seen[ref.path] = true
+		}
+	}
+	if pending != "" {
+		for _, p := range g.AllPages() {
+			if !seen[p.Path()] {
+				rewrite = append(rewrite, p)
+			}
+		}
+	}
+	for _, p := range rewrite {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 		if err := g.writePeriod(p, res); err != nil {
 			return err
 		}
 	}
-	return store.SetMeta(g.DB, "report_privacy", key)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if len(pages) > 0 || hasIndex || pending != "" {
+		if err := g.writeIndex(res); err != nil {
+			return err
+		}
+	}
+	return g.DB.Tx(ctx, func(tx *sql.Tx) error {
+		// GenerateOne may retire pages without completing a layout-wide run.
+		// Invalidate that marker so restoring the previous switches still
+		// schedules a full enabled archive on the next GenerateDirty call.
+		if _, err := tx.Exec(`DELETE FROM meta WHERE key='report_layout'`); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`INSERT OR REPLACE INTO meta(key,value) VALUES('report_privacy',?)`, privacy); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`INSERT OR REPLACE INTO meta(key,value) VALUES('report_publication',?)`, key); err != nil {
+			return err
+		}
+		_, err := tx.Exec(`DELETE FROM meta WHERE key='report_publication_pending'`)
+		return err
+	})
 }

@@ -34,7 +34,7 @@ func TestAggregatedHourCoverage(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer db.Close()
+			defer func(cleanup func() error) { _ = cleanup() }(db.Close)
 			if tc.full || tc.observed > 0 {
 				r, err := db.Exec(`INSERT INTO sources(fingerprint,fp_len,path,created_at,updated_at) VALUES('x',1,'x',0,0)`)
 				if err != nil {

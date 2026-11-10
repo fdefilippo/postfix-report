@@ -119,7 +119,7 @@ an RPM built on EL9 also installs on EL10.
 
 To publish a release, update `Version` and `%changelog` in the spec and the
 version in `docs/postfix-report.1`, then create and push the tag
-(`git tag -a v0.4.1 && git push origin v0.4.1`). The workflow
+(`git tag -a v0.5.0 && git push origin v0.5.0`). The workflow
 `.github/workflows/release.yml` checks the versions (`make release-check`),
 builds the RPMs and the `.deb` packages and creates the release. It runs only
 on tags.
@@ -346,9 +346,11 @@ embedded in each page: there is no `fetch()` and no CDN.
 * `privacy.anonymize_email` pseudonymizes the local part of addresses and the
   SASL users with an HMAC. The key is stored in the database, never in the
   reports. `privacy.anonymize_ip` truncates IPs to /24 or /48. Both options
-  are disabled by default. Changing either option rewrites every registered
-  archive page, including report types currently disabled, on the next
-  `generate` or `update` (also when generating one period). Interrupted changes
+  are disabled by default. Changing either option rewrites every enabled,
+  registered archive page on the next `generate` or `update` (also when
+  generating one period). Disabling a report type retires its registered HTML
+  files on that run and updates navigation, including for static Apache/Nginx;
+  `serve` denies disabled pages immediately. Interrupted changes
   are retried on the next run. Files not registered in this database, copies
   in another output directory and browser/proxy caches require separate handling.
 * Rejection and deferral reasons are normalized (addresses → `<addr>`,
@@ -373,12 +375,24 @@ make demo        # regenerate demo/ from synthetic data
 * `cmd/synthlog` generates realistic synthetic logs (`example.*` domains,
   documentation IPs) for demos, benchmarks and tests.
 
+The push/PR workflow runs `make check`, `make test-race` (the short suite),
+`make lint` (errcheck, without package exclusions) and `make vulncheck`, using
+Go 1.27.3, golangci-lint 2.14.0 and govulncheck 1.8.0. `make ci-check` runs the
+same gates locally with already installed tools; none of these Make targets
+installs tools. The runner's Chrome is required for HTML browser tests.
+`make validate` remains a local gate because the reference log is private;
+CI has no access to that log. Minimum-toolchain (Go 1.25) and native platform
+qualification are separate from this workflow. The tag-triggered packaging
+workflow is unchanged.
+
 ## Performance
 
 On an Intel N150 (4 cores, low power): parser about 0.5 µs per line; full
 pipeline (import, correlation, aggregation) about 24,000 lines/s. The
 reference log (254,884 lines) imports in about 10 s. The database takes about
 30 MB per 150,000 log lines per day (see LIMITATIONS.md).
+Repeatable synthetic archive and query measurements: `make bench-archive`;
+methodology and limits are recorded in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ## Optional browser PDF/ODT exports
 

@@ -91,7 +91,7 @@ func New(ctx context.Context, cfg *config.Config, load LoadConfig, version strin
 	if err != nil {
 		return nil, err
 	}
-	db.Close()
+	_ = db.Close()
 	root, err := os.OpenRoot(cfg.Output.Directory)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func New(ctx context.Context, cfg *config.Config, load LoadConfig, version strin
 	ctx, stop := context.WithCancel(ctx)
 	s := &Server{base: cfg, load: load, version: version, log: log, ctx: ctx, cancel: stop, queue: make(chan *job, cfg.Web.QueueSize), jobs: make(map[string]*job), root: root, render: exporter.Render, renderArchive: exporter.RenderArchive}
 	if _, err = rand.Read(s.secret[:]); err != nil {
-		root.Close()
+		_ = root.Close()
 		stop()
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func Run(ctx context.Context, cfg *config.Config, load LoadConfig, version strin
 	if err != nil {
 		return err
 	}
-	defer s.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(s.Close)
 	ln, err := net.Listen("tcp", cfg.Web.Listen)
 	if err != nil {
 		return err
@@ -194,7 +194,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if rel == "api/export.js" && r.Method == http.MethodGet {
 		b, _ := assets.ReadFile("assets/export.js")
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		w.Write(b)
+		_, _ = w.Write(b)
 		return
 	}
 	if rel == "api/session" && r.Method == http.MethodGet {
@@ -411,7 +411,7 @@ func (s *Server) result(w http.ResponseWriter, r *http.Request, tail string) {
 	w.Header().Set("Content-Type", ctype)
 	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-	w.Write(data)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) worker() {
@@ -530,9 +530,18 @@ func (s *Server) static(w http.ResponseWriter, r *http.Request, rel string) {
 		http.Error(w, "configuration changed: restart serve", http.StatusServiceUnavailable)
 		return
 	}
+	if selected != nil {
+		enabled := map[period.Kind]bool{period.Day: cfg.Reports.Daily, period.Week: cfg.Reports.Weekly, period.Month: cfg.Reports.Monthly, period.Year: cfg.Reports.Yearly}
+		if !enabled[selected.Kind] {
+			http.NotFound(w, r)
+			return
+		}
+	}
+	releaseHTML := func() {}
 	if strings.HasSuffix(rel, ".html") {
-		// Reconciliation writes its privacy marker only after rewriting every
-		// managed page. Until then old, less restricted HTML is not served.
+		// Keep the shared lock through the HTML copy: releasing it after the
+		// metadata check would let an updater replace the validated page before
+		// it is opened. The response is sent only after releasing this lock.
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 		unlock, e := store.ReadLock(ctx, cfg.Database.Path)
@@ -540,30 +549,40 @@ func (s *Server) static(w http.ResponseWriter, r *http.Request, rel string) {
 			http.Error(w, "report update in progress; retry shortly", http.StatusServiceUnavailable)
 			return
 		}
+		locked := true
+		releaseHTML = func() {
+			if locked {
+				unlock()
+				locked = false
+			}
+		}
+		defer releaseHTML()
 		db, e := store.OpenReader(ctx, cfg.Database.Path)
 		if e != nil {
-			unlock()
+			releaseHTML()
 			http.Error(w, "database unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		var marker string
-		e = db.QueryRowContext(ctx, `SELECT value FROM meta WHERE key='report_privacy'`).Scan(&marker)
-		db.Close()
-		unlock()
+		var marker, pending string
+		e = db.QueryRowContext(ctx, `SELECT value, COALESCE((SELECT value FROM meta WHERE key='report_publication_pending'),'') FROM meta WHERE key='report_privacy'`).Scan(&marker, &pending)
+		_ = db.Close()
 		want := fmt.Sprintf("%t/%t/%s", cfg.Privacy.AnonymizeEmail, cfg.Privacy.AnonymizeIP, cfg.Output.Directory)
-		if e != nil || marker != want {
+		if e != nil || marker != want || pending != "" {
+			releaseHTML()
 			http.Error(w, "privacy settings changed: run update before serving reports", http.StatusServiceUnavailable)
 			return
 		}
 	}
 	f, err := s.root.Open(rel)
 	if err != nil {
+		releaseHTML()
 		http.NotFound(w, r)
 		return
 	}
-	defer f.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(f.Close)
 	st, err := f.Stat()
 	if err != nil || !st.Mode().IsRegular() {
+		releaseHTML()
 		http.NotFound(w, r)
 		return
 	}
@@ -572,14 +591,17 @@ func (s *Server) static(w http.ResponseWriter, r *http.Request, rel string) {
 		return
 	}
 	if st.Size() > 16<<20 {
+		releaseHTML()
 		http.Error(w, "report exceeds HTML size limit", http.StatusRequestEntityTooLarge)
 		return
 	}
 	b, err := io.ReadAll(io.LimitReader(f, (16<<20)+1))
 	if err != nil || len(b) > 16<<20 {
+		releaseHTML()
 		http.Error(w, "cannot read report", http.StatusInternalServerError)
 		return
 	}
+	releaseHTML()
 	if selected != nil {
 		label := "Esporta il report completo"
 		if cfg.Output.Language == "en" {
@@ -593,6 +615,6 @@ func (s *Server) static(w http.ResponseWriter, r *http.Request, rel string) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if r.Method != http.MethodHead {
-		w.Write(b)
+		_, _ = w.Write(b)
 	}
 }

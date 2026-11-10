@@ -66,7 +66,21 @@ func Run(db *store.DB, loc *time.Location, outDir string) (*Report, error) {
 	if err != nil {
 		return nil, err
 	}
-	r.add("schema", v > 0, false, "versione %d", v)
+	want, err := store.LatestSchemaVersion()
+	if err != nil {
+		return nil, fmt.Errorf("schema atteso: %w", err)
+	}
+	r.add("schema", v == want, false, "versione %d, attesa %d", v, want)
+	for _, pending := range []struct{ key, name string }{
+		{"correlation_notification_window_pending", "ricorrelazione notifiche incompleta"},
+		{"report_publication_pending", "riconciliazione pubblicazione incompleta"},
+	} {
+		value, err := store.GetMeta(db, pending.key)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", pending.name, err)
+		}
+		r.add(pending.name, value == "", false, "stato %q", value)
+	}
 
 	// Correlation completeness: every stored event up to the watermark has
 	// been turned into its derived row.
@@ -101,12 +115,18 @@ func Run(db *store.DB, loc *time.Location, outDir string) (*Report, error) {
 	}
 	r.add("una sola reiniezione per messaggio originale", multi == 0, false, "%d originali con più reiniezioni", multi)
 	var orphans, noLink int64
-	db.QueryRow(`SELECT COUNT(*) FROM instances WHERE origin='reinject' AND parent_id IS NULL`).Scan(&orphans)
-	db.QueryRow(`SELECT COUNT(*) FROM instances i WHERE filtered=1 AND NOT EXISTS (SELECT 1 FROM instances c WHERE c.parent_id=i.id)`).Scan(&noLink)
+	if err := db.QueryRow(`SELECT COUNT(*) FROM instances WHERE origin='reinject' AND parent_id IS NULL`).Scan(&orphans); err != nil {
+		return nil, fmt.Errorf("reiniezioni senza originale: %w", err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM instances i WHERE filtered=1 AND NOT EXISTS (SELECT 1 FROM instances c WHERE c.parent_id=i.id)`).Scan(&noLink); err != nil {
+		return nil, fmt.Errorf("passaggi al filtro senza reiniezione: %w", err)
+	}
 	r.add("reiniezioni senza originale", orphans == 0, true, "%d", orphans)
 	r.add("passaggi al filtro senza reiniezione", noLink == 0, true, "%d", noLink)
 	var unknown int64
-	db.QueryRow(`SELECT COALESCE(SUM(count),0) FROM unknown_lines`).Scan(&unknown)
+	if err := db.QueryRow(`SELECT COALESCE(SUM(count),0) FROM unknown_lines`).Scan(&unknown); err != nil {
+		return nil, fmt.Errorf("righe Postfix non riconosciute: %w", err)
+	}
 	r.add("righe Postfix non riconosciute", unknown == 0, true, "%d", unknown)
 
 	// Aggregates: recompute every day in memory and compare.
@@ -129,8 +149,12 @@ func Run(db *store.DB, loc *time.Location, outDir string) (*Report, error) {
 	}
 	r.add("aggregati ricalcolati = aggregati memorizzati", len(diffs) == 0, false, "%s", detail)
 	var dirtyDays, dirtyPages int64
-	db.QueryRow(`SELECT COUNT(*) FROM dirty_days`).Scan(&dirtyDays)
-	db.QueryRow(`SELECT COUNT(*) FROM dirty_pages`).Scan(&dirtyPages)
+	if err := db.QueryRow(`SELECT COUNT(*) FROM dirty_days`).Scan(&dirtyDays); err != nil {
+		return nil, fmt.Errorf("aggregati in attesa di ricalcolo: %w", err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM dirty_pages`).Scan(&dirtyPages); err != nil {
+		return nil, fmt.Errorf("report in attesa di rigenerazione: %w", err)
+	}
 	r.add("aggregati in attesa di ricalcolo", dirtyDays == 0, false, "%d giorni", dirtyDays)
 	r.add("report in attesa di rigenerazione", dirtyPages == 0, true, "%d pagine (eseguire 'generate')", dirtyPages)
 
@@ -158,7 +182,7 @@ func countRows(db *store.DB, q string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	n := 0
 	for rows.Next() {
 		n++
@@ -184,7 +208,7 @@ func listDays(db *store.DB, loc *time.Location) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var d string
 		if err := rows.Scan(&d); err != nil {
@@ -215,7 +239,7 @@ func checkHTML(db *store.DB, outDir string, r *Report) error {
 	for rows.Next() {
 		var p string
 		if err := rows.Scan(&p); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return err
 		}
 		n++
@@ -223,7 +247,11 @@ func checkHTML(db *store.DB, outDir string, r *Report) error {
 			missing = append(missing, p)
 		}
 	}
-	rows.Close()
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return err
+	}
 	r.add("pagine registrate presenti su disco", len(missing) == 0, false, "%d pagine, mancanti: %s", n, strings.Join(first(missing, 5), ", "))
 	res, err := CheckLinks(outDir)
 	if err != nil {

@@ -9,7 +9,7 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.4.1
+Version:        0.5.0
 Release:        1%{?dist}
 Summary:        Statistiche Postfix con report HTML, PDF e ODT
 
@@ -94,6 +94,8 @@ sed -i -e '/^ProtectHostname=/d' -e '/^ProtectKernelLogs=/d' -e '/^ProtectClock=
 install -d -m 0750 %{buildroot}%{_sharedstatedir}/%{name}
 install -d -m 0755 %{buildroot}%{_localstatedir}/www/html/%{name}
 
+install -D -m 0644 docs/PERFORMANCE.md %{buildroot}%{_docdir}/%{name}/docs/PERFORMANCE.md
+
 %pre
 getent group %{name} >/dev/null || groupadd -r %{name}
 getent passwd %{name} >/dev/null || \
@@ -116,6 +118,7 @@ exit 0
 %license LICENSE docs/licenses
 %doc README.md README.it.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md EXPORTS.md config.example.yaml
 %doc examples
+%{_docdir}/%{name}/docs/PERFORMANCE.md
 %{_bindir}/%{name}
 %{_mandir}/man1/%{name}.1*
 %dir %attr(0755,root,root) %{_sysconfdir}/%{name}
@@ -127,6 +130,12 @@ exit 0
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Tue Nov 10 2026 Francesco Defilippo <francesco@defilippo.org> - 0.5.0-1
+- Ritiro e ripristino dei report disabilitati con recupero delle pubblicazioni interrotte.
+- Finestra notifiche configurabile e replay storico recuperabile dopo errori parziali.
+- Percorsi SQLite letterali, verifica integrita e limite esplicito delle righe di log.
+- Error handling verificato, CI push/PR e benchmark riproducibili senza nuovi indici.
+
 * Wed Nov 04 2026 Francesco Defilippo <francesco@defilippo.org> - 0.4.1-1
 - Esempi Apache HTTPD e Nginx documentati in docs/ per export PDF/ODT via HTTPS.
 - Esempi inclusi in RPM, DEB e installazione manuale, con link nelle guide.

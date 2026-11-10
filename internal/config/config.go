@@ -55,10 +55,11 @@ type Config struct {
 		Hosts []string `yaml:"hosts"`
 	} `yaml:"input"`
 	Correlation struct {
-		FilterTransports []string `yaml:"filter_transports"`
-		ReinjectUIDs     []int    `yaml:"reinject_uids"`
-		ReinjectWindow   Duration `yaml:"reinject_window"`
-		StaleAfter       Duration `yaml:"stale_after"`
+		FilterTransports   []string `yaml:"filter_transports"`
+		ReinjectUIDs       []int    `yaml:"reinject_uids"`
+		ReinjectWindow     Duration `yaml:"reinject_window"`
+		NotificationWindow Duration `yaml:"notification_window"`
+		StaleAfter         Duration `yaml:"stale_after"`
 	} `yaml:"correlation"`
 	Coverage struct {
 		GapThreshold Duration `yaml:"gap_threshold"`
@@ -105,6 +106,7 @@ func Default() *Config {
 	c.Correlation.FilterTransports = []string{"filter"}
 	c.Correlation.ReinjectUIDs = []int{97}
 	c.Correlation.ReinjectWindow = Duration{120 * time.Second}
+	c.Correlation.NotificationWindow = Duration{60 * time.Second}
 	c.Correlation.StaleAfter = Duration{7 * 24 * time.Hour}
 	c.Coverage.GapThreshold = Duration{60 * time.Minute}
 	c.Output.Directory = "/var/www/html/postfix-report"
@@ -163,6 +165,9 @@ func (c *Config) Finish() error {
 	}
 	if c.Correlation.ReinjectWindow.Duration <= 0 {
 		add("correlation.reinject_window: must be > 0")
+	}
+	if w := c.Correlation.NotificationWindow.Duration; w < time.Second || w > c.Correlation.StaleAfter.Duration || w%time.Second != 0 {
+		add("correlation.notification_window: must be whole seconds between 1s and stale_after")
 	}
 	if c.Correlation.StaleAfter.Duration < time.Hour {
 		add("correlation.stale_after: must be >= 1h")

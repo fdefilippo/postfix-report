@@ -88,3 +88,23 @@
   che condividano lo stesso database via rete. È una configurazione da evitare
   con SQLite.
 * Il binario richiede Linux (o un sistema con `flock(2)`).
+
+- Import: una riga può occupare al massimo **1 MiB**, newline inclusa. Una riga
+  più lunga fa fallire il file con un errore esplicito e non viene troncata né
+  saltata; le transazioni già completate restano valide. Correggere la sorgente
+  e ripetere l'import. Il limite si applica anche al contenuto decompresso gzip.
+- Disabilitare un tipo di report ritira i relativi file HTML **registrati nel
+  database** al successivo `update`/`generate`, anche se serviti staticamente da
+  Apache/Nginx. `serve` nega subito l'accesso secondo la configurazione corrente.
+  I file non registrati e le copie esterne/download precedenti restano invariati.
+  Riabilitare il tipo e usare `update` o `generate --all` per ricostruirlo.
+  Una riconciliazione interrotta viene ripresa anche se la configurazione viene
+  riportata al valore precedente; `verify` segnala lo stato incompleto.
+  Durante tale recupero il daemon risponde HTTP 503 per gli HTML fino al
+  completamento di `update`/`generate`. Il controllo dello stato e la lettura
+  dell'HTML usano lo stesso lock condiviso; il lock è rilasciato prima dell'invio
+  della risposta. Il ritiro statico rimane un'operazione per file, non una
+  pubblicazione atomica dell'intera directory: Apache/Nginx statici non leggono
+  gli stati pendenti nel database e possono servire pagine con politiche diverse
+  durante una riscrittura parziale. Dopo un errore, completare `update` prima di
+  riesporre staticamente l'archivio con una politica privacy più restrittiva.

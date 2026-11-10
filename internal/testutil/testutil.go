@@ -107,11 +107,17 @@ func WriteFile(t testing.TB, path, content string, mtime time.Time) {
 		t.Fatal(err)
 	}
 	if gz != nil {
-		gz.Close()
+		if err := gz.Close(); err != nil {
+			t.Fatal(err)
+		}
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
 	if !mtime.IsZero() {
-		os.Chtimes(path, mtime, mtime)
+		if err := os.Chtimes(path, mtime, mtime); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

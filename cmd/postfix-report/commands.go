@@ -60,16 +60,16 @@ func (c *cli) importCmd(ctx context.Context, a *app.App, files []string, dir str
 func (c *cli) printImport(s *app.ImportSummary) {
 	for _, f := range s.Files {
 		if f.Skipped != "" {
-			fmt.Fprintf(c.stdout, "%s: saltato (%s)\n", f.Path, f.Skipped)
+			_, _ = fmt.Fprintf(c.stdout, "%s: saltato (%s)\n", f.Path, f.Skipped)
 			continue
 		}
-		fmt.Fprintf(c.stdout, "%s: %d righe, %d eventi nuovi, %d duplicati, %d non Postfix, %d non riconosciute\n",
+		_, _ = fmt.Fprintf(c.stdout, "%s: %d righe, %d eventi nuovi, %d duplicati, %d non Postfix, %d non riconosciute\n",
 			f.Path, f.Lines, f.Events, f.Duplicates, f.NonPostfix, f.Unknown)
 	}
-	fmt.Fprintf(c.stdout, "eventi correlati: %d (reiniezioni collegate %d, senza originale %d); giorni ricalcolati: %d\n",
+	_, _ = fmt.Fprintf(c.stdout, "eventi correlati: %d (reiniezioni collegate %d, senza originale %d); giorni ricalcolati: %d\n",
 		s.Correlated, s.Reinjected, s.Orphans, len(s.DaysUpdated))
 	if len(s.FullHosts) > 0 {
-		fmt.Fprintf(c.stdout, "host ricorrelati da zero (dati arretrati): %v\n", s.FullHosts)
+		_, _ = fmt.Fprintf(c.stdout, "host ricorrelati da zero (dati arretrati): %v\n", s.FullHosts)
 	}
 }
 
@@ -109,7 +109,7 @@ func (c *cli) generateCmd(ctx context.Context, a *app.App, s *selection) int {
 		n++
 	}
 	if n > 1 {
-		fmt.Fprintln(c.stderr, "generate: usare una sola tra --all, --date, --week, --month, --year")
+		_, _ = fmt.Fprintln(c.stderr, "generate: usare una sola tra --all, --date, --week, --month, --year")
 		return exitUsage
 	}
 	sel := map[period.Kind]string{period.Day: s.date, period.Week: s.week, period.Month: s.month, period.Year: s.year}
@@ -123,7 +123,7 @@ func (c *cli) generateCmd(ctx context.Context, a *app.App, s *selection) int {
 			}
 			p, perr := period.Parse(k, v, c.cfg.Location)
 			if perr != nil {
-				fmt.Fprintln(c.stderr, "generate:", perr)
+				_, _ = fmt.Fprintln(c.stderr, "generate:", perr)
 				return exitUsage
 			}
 			res, err = g.GenerateOne(p)
@@ -142,7 +142,7 @@ func (c *cli) generateCmd(ctx context.Context, a *app.App, s *selection) int {
 }
 
 func (c *cli) printGenerate(r *report.Result) {
-	fmt.Fprintf(c.stdout, "pagine elaborate: %d, scritte: %d, invariate: %d (output: %s)\n",
+	_, _ = fmt.Fprintf(c.stdout, "pagine elaborate: %d, scritte: %d, invariate: %d (output: %s)\n",
 		r.Rendered, r.Written, r.Unchanged, c.cfg.Output.Directory)
 	c.log.Debug("written", "paths", r.Paths)
 }
@@ -182,7 +182,7 @@ func (c *cli) rebuildCmd(ctx context.Context, a *app.App) int {
 		c.log.Error("rebuild", "err", err)
 		return exitError
 	}
-	fmt.Fprintf(c.stdout, "eventi ricorrelati: %d (reiniezioni collegate %d, senza originale %d); giorni ricalcolati: %d\n",
+	_, _ = fmt.Fprintf(c.stdout, "eventi ricorrelati: %d (reiniezioni collegate %d, senza originale %d); giorni ricalcolati: %d\n",
 		cs.Events, cs.Reinjected, cs.Orphans, len(days))
 	g, err := c.generator(a)
 	if err != nil {
@@ -214,7 +214,7 @@ func (c *cli) verifyCmd(ctx context.Context, a *app.App) int {
 		case !ch.OK:
 			mark = "FAIL"
 		}
-		fmt.Fprintf(c.stdout, "[%s] %s: %s\n", mark, ch.Name, ch.Detail)
+		_, _ = fmt.Fprintf(c.stdout, "[%s] %s: %s\n", mark, ch.Name, ch.Detail)
 	}
 	if r.Failed() {
 		return exitVerify
@@ -241,7 +241,7 @@ func (c *cli) statsCmd(ctx context.Context, a *app.App, from, to string, asJSON 
 		return exitError
 	}
 	if lo == 0 {
-		fmt.Fprintln(c.stderr, "stats: nessun dato importato")
+		_, _ = fmt.Fprintln(c.stderr, "stats: nessun dato importato")
 		return exitError
 	}
 	if from == "" {
@@ -253,7 +253,7 @@ func (c *cli) statsCmd(ctx context.Context, a *app.App, from, to string, asJSON 
 	pf, err1 := period.Parse(period.Day, from, c.cfg.Location)
 	pt, err2 := period.Parse(period.Day, to, c.cfg.Location)
 	if err1 != nil || err2 != nil || pt.Start.Before(pf.Start) {
-		fmt.Fprintln(c.stderr, "stats: intervallo non valido")
+		_, _ = fmt.Fprintln(c.stderr, "stats: intervallo non valido")
 		return exitUsage
 	}
 	var days []string
@@ -291,20 +291,23 @@ func (c *cli) statsCmd(ctx context.Context, a *app.App, from, to string, asJSON 
 	if asJSON {
 		enc := json.NewEncoder(c.stdout)
 		enc.SetIndent("", "  ")
-		enc.Encode(out)
+		if err := enc.Encode(out); err != nil {
+			c.log.Error("stats output", "err", err)
+			return exitError
+		}
 		return exitOK
 	}
-	fmt.Fprintf(c.stdout, "Periodo %s – %s, copertura %.2f%%\n", from, to, out.Coverage*100)
+	_, _ = fmt.Fprintf(c.stdout, "Periodo %s – %s, copertura %.2f%%\n", from, to, out.Coverage*100)
 	keys := make([]string, 0, len(out.Metrics))
 	for k := range out.Metrics {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		fmt.Fprintf(c.stdout, "  %-22s %16.2f\n", k, out.Metrics[k])
+		_, _ = fmt.Fprintf(c.stdout, "  %-22s %16.2f\n", k, out.Metrics[k])
 	}
 	d := out.Delivery
-	fmt.Fprintf(c.stdout, "Ritardo consegne: n=%d media=%.3fs p50=%.2f p90=%.2f p95=%.2f p99=%.2f max=%.2f\n",
+	_, _ = fmt.Fprintf(c.stdout, "Ritardo consegne: n=%d media=%.3fs p50=%.2f p90=%.2f p95=%.2f p99=%.2f max=%.2f\n",
 		d.Count, d.Avg, d.P50, d.P90, d.P95, d.P99, d.Max)
 	return exitOK
 }

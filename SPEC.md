@@ -6,7 +6,7 @@
 **Linguaggio:** Go  
 **Database:** SQLite  
 **Output principale:** report HTML statici  
-**Esecuzione:** batch periodico mediante systemd timer o cron  
+**Esecuzione:** batch periodico mediante systemd timer o cron; daemon `serve` opzionale
 **Ambiente:** Linux, con particolare attenzione a Enterprise Linux  
 **Input di riferimento:** `samples/maillog`
 
@@ -24,7 +24,7 @@ Il programma deve consentire l'analisi del traffico di posta su cinque livelli:
 
 Il report deve consentire di comprendere quantità, caratteristiche, prestazioni, anomalie e andamento storico del traffico SMTP.
 
-L'intero sistema deve funzionare senza servizi esterni, senza connessione Internet e senza server applicativi.
+La pipeline batch e la consultazione HTML devono funzionare senza servizi esterni, connessione Internet o server applicativi obbligatori. Il comando opzionale `serve` aggiunge esportazioni PDF/ODT su richiesta dal browser; non sostituisce il percorso statico offline.
 
 # 2. Principi architetturali
 
@@ -66,7 +66,14 @@ Separare rigorosamente acquisizione, correlazione, persistenza, aggregazione e p
 
 Il database SQLite è la fonte dei dati per la generazione dei report.
 
-Non implementare un server HTTP applicativo, API REST o framework frontend che richiedano un processo server.
+Il percorso principale resta HTML statico offline. È ammesso il daemon HTTP
+opzionale `postfix-report serve`, in ascolto su loopback e pubblicato tramite
+reverse proxy autenticato (Apache/Nginx). Le sue API gestiscono esportazioni
+PDF/ODT per periodo o archivio completo con indice; i job hanno limiti di coda,
+timeout e scadenza. PDF e ODT sono disponibili anche tramite CLI. Il renderer
+PDF/ODT opera interamente in Go, senza Chromium o LibreOffice a runtime. Contratti operativi e
+configurazione: `EXPORTS.md`, `config.example.yaml`, `deploy/systemd/` ed esempi
+proxy in `docs/`. Il frontend statico non deve dipendere dal daemon.
 
 # 3. Analisi preliminare del maillog
 
@@ -517,6 +524,8 @@ Consegnare:
 - Database SQLite e migrazioni.
 - Motore di aggregazione.
 - Generatore HTML statico.
+- Export PDF/ODT da CLI e browser, per periodo o archivio completo con indice.
+- Daemon HTTP opzionale e API per job di export.
 - Asset CSS e JavaScript locali.
 - Template HTML.
 - Configurazione di esempio.
@@ -530,7 +539,8 @@ Consegnare:
 - LOG_ANALYSIS.md.
 - VALIDATION.md.
 - LIMITATIONS.md.
-- File systemd service e timer.
+- File systemd service e timer, inclusa unità web opzionale.
+- EXPORTS.md ed esempi reverse proxy Apache HTTPD e Nginx.
 - Report HTML dimostrativi generati dai dati disponibili.
 
 # 17. Modalità di sviluppo autonoma

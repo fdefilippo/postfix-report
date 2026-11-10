@@ -30,12 +30,14 @@ func TestInterruptedRunIsRecovered(t *testing.T) {
 	testutil.WriteFile(t, env.LogPath("maillog.old"), strings.Join(lines[:half], "\n")+"\n", mt)
 	testutil.WriteFile(t, env.LogPath("maillog.empty"), "", mt)
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
 	// Simulated crash: only the ingest stage runs for the old file.
-	a.DB.Exec(`INSERT INTO imports(command, started_at, status) VALUES('crashed', 0, 'running')`)
+	if _, err := a.DB.Exec(`INSERT INTO imports(command, started_at, status) VALUES('crashed', 0, 'running')`); err != nil {
+		t.Fatal(err)
+	}
 	im := &ingest.Importer{DB: a.DB, Cfg: env.Cfg, Log: env.Log}
 	if _, err := im.Import(ctx, 2, []string{env.LogPath("maillog.old")}); err != nil {
 		t.Fatal(err)
@@ -62,7 +64,7 @@ func TestInterleavedHostsKeepIdenticalLines(t *testing.T) {
 	env := testutil.NewEnv(t)
 	testutil.WriteFile(t, env.LogPath("maillog"), content, time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC))
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	sum, err := a.Import(ctx, "test", []string{env.LogPath("maillog")})
 	if err != nil {
 		t.Fatal(err)
@@ -81,7 +83,7 @@ func TestRangeGrowthCreatesGapPages(t *testing.T) {
 	mt := time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC)
 	testutil.WriteFile(t, path, "Oct  5 10:00:00 mx1 postfix/smtpd[1]: connect from unknown[192.0.2.1]\n", mt)
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	gen := func() {
 		if _, err := a.Import(ctx, "test", []string{path}); err != nil {
 			t.Fatal(err)
@@ -99,8 +101,10 @@ func TestRangeGrowthCreatesGapPages(t *testing.T) {
 	}
 	gen()
 	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
-	f.WriteString("Oct  9 10:00:00 mx1 postfix/smtpd[1]: connect from unknown[192.0.2.1]\n")
-	f.Close()
+	if _, err := f.WriteString("Oct  9 10:00:00 mx1 postfix/smtpd[1]: connect from unknown[192.0.2.1]\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
 	gen()
 	for _, d := range []string{"05", "06", "07", "08", "09"} {
 		if _, err := os.Stat(filepath.Join(env.Cfg.Output.Directory, "daily", "2026-10-"+d+".html")); err != nil {

@@ -107,7 +107,7 @@ func TestScenarioCounts(t *testing.T) {
 	env := testutil.NewEnv(t)
 	testutil.WriteFile(t, env.LogPath("maillog"), scenario(t).String(), time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC))
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
@@ -123,10 +123,12 @@ func TestScenarioCounts(t *testing.T) {
 	for rows.Next() {
 		var s string
 		var n int
-		rows.Scan(&s, &n)
+		if err := rows.Scan(&s, &n); err != nil {
+			t.Fatal(err)
+		}
 		got[s] = n
 	}
-	rows.Close()
+	_ = rows.Close()
 	want := map[string]int{"filtered": 5, "delivered": 7, "failed": 1, "expired": 1}
 	for k, v := range want {
 		if got[k] != v {
@@ -135,13 +137,17 @@ func TestScenarioCounts(t *testing.T) {
 	}
 	// The pre-existing message is flagged, not counted as accepted.
 	var flagged int
-	a.DB.QueryRow(`SELECT COUNT(*) FROM instances WHERE qid='AB00000004' AND accept_observed=0 AND flags LIKE '%start_not_observed%'`).Scan(&flagged)
+	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM instances WHERE qid='AB00000004' AND accept_observed=0 AND flags LIKE '%start_not_observed%'`).Scan(&flagged); err != nil {
+		t.Fatal(err)
+	}
 	if flagged != 1 {
 		t.Error("pre-existing instance not flagged")
 	}
 	// The reused queue ID produced two lifecycles.
 	var n int
-	a.DB.QueryRow(`SELECT COUNT(*) FROM instances WHERE qid='A000000001'`).Scan(&n)
+	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM instances WHERE qid='A000000001'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
 	if n != 2 {
 		t.Errorf("A000000001 lifecycles = %d", n)
 	}
@@ -168,7 +174,7 @@ func TestRepeatedImportIsIdempotent(t *testing.T) {
 	env := testutil.NewEnv(t)
 	testutil.WriteFile(t, env.LogPath("maillog"), scenario(t).String(), time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC))
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	for i := 0; i < 3; i++ {
 		sum, err := a.Import(ctx, "test", []string{env.LogPath("maillog")})
 		if err != nil {
@@ -206,14 +212,16 @@ func TestRotationGzipAndCrossFileCorrelation(t *testing.T) {
 	// First run: the current file holds the first 40 lines.
 	testutil.WriteFile(t, cur, strings.Join(lines[:40], "\n")+"\n", mt)
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "update", []string{cur}); err != nil {
 		t.Fatal(err)
 	}
 	// More lines are appended, then logrotate compresses the file and a new
 	// one starts. The appended lines were never imported before rotation.
 	testutil.WriteFile(t, cur, strings.Join(lines[:cut], "\n")+"\n", mt)
-	os.Remove(cur)
+	if err := os.Remove(cur); err != nil {
+		t.Fatal(err)
+	}
 	testutil.WriteFile(t, env.LogPath("maillog-20261013.gz"), strings.Join(lines[:cut], "\n")+"\n", mt)
 	testutil.WriteFile(t, cur, strings.Join(lines[cut:], "\n")+"\n", mt)
 	sum, err := a.Import(ctx, "update", []string{env.LogPath("maillog-20261013.gz"), cur})
@@ -239,7 +247,7 @@ func storedEvents(t *testing.T, content string) int {
 	env := testutil.NewEnv(t)
 	testutil.WriteFile(t, env.LogPath("maillog"), content, time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC))
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +263,7 @@ func TestOverlappingSourcesAndDuplicateLines(t *testing.T) {
 	// with a different first line (so a different source).
 	testutil.WriteFile(t, env.LogPath("maillog.copy"), "Oct 12 09:59:59 mx1 kernel: unrelated\n"+strings.Join(lines[20:60], "\n")+"\n", mt)
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	sum, err := a.Import(ctx, "test", []string{env.LogPath("maillog"), env.LogPath("maillog.copy")})
 	if err != nil {
 		t.Fatal(err)
@@ -275,14 +283,16 @@ func TestIdenticalLinesInSameSecondAreKept(t *testing.T) {
 	path := env.LogPath("maillog")
 	testutil.WriteFile(t, path, l.String(), time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC))
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{path}); err != nil {
 		t.Fatal(err)
 	}
 	// Append a fourth identical line in the same second: still a new line.
 	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
-	f.WriteString(l.Lines()[0] + "\n")
-	f.Close()
+	if _, err := f.WriteString(l.Lines()[0] + "\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
 	if _, err := a.Import(ctx, "test", []string{path}); err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +307,7 @@ func TestBackfillTriggersRecorrelation(t *testing.T) {
 	testutil.WriteFile(t, env.LogPath("maillog"), strings.Join(lines[half:], "\n")+"\n", mt)
 	testutil.WriteFile(t, env.LogPath("maillog.old"), strings.Join(lines[:half], "\n")+"\n", mt)
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
@@ -326,12 +336,14 @@ func TestIncompleteLifecycleCompletedLater(t *testing.T) {
 	partial := lines[cut][:20]
 	testutil.WriteFile(t, path, strings.Join(lines[:cut], "\n")+"\n"+partial, mt)
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{path}); err != nil {
 		t.Fatal(err)
 	}
 	var pending int
-	a.DB.QueryRow(`SELECT COUNT(*) FROM recipients WHERE status='pending'`).Scan(&pending)
+	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM recipients WHERE status='pending'`).Scan(&pending); err != nil {
+		t.Fatal(err)
+	}
 	if pending != 1 {
 		t.Errorf("pending recipients = %d, want 1", pending)
 	}
@@ -341,7 +353,9 @@ func TestIncompleteLifecycleCompletedLater(t *testing.T) {
 		t.Fatal(err)
 	}
 	expect(t, totals(t, a, "2026-10-12"), day12)
-	a.DB.QueryRow(`SELECT COUNT(*) FROM recipients WHERE status='pending'`).Scan(&pending)
+	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM recipients WHERE status='pending'`).Scan(&pending); err != nil {
+		t.Fatal(err)
+	}
 	if pending != 0 {
 		t.Errorf("pending recipients after completion = %d", pending)
 	}
@@ -355,7 +369,7 @@ func TestYearRollover(t *testing.T) {
 	// mtime after the last line: Dec lines must be 2026, Jan lines 2027.
 	testutil.WriteFile(t, env.LogPath("maillog"), l.String(), time.Date(2027, 1, 1, 1, 0, 0, 0, time.UTC))
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +387,7 @@ func TestDSTFallBackDay(t *testing.T) {
 	env := testutil.NewEnv(t)
 	testutil.WriteFile(t, env.LogPath("maillog"), l.String(), time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC))
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +400,9 @@ func TestDSTFallBackDay(t *testing.T) {
 		t.Errorf("hour 02 = %v, hour 03 = %v", byHour[2], byHour[3])
 	}
 	var span int64
-	a.DB.QueryRow(`SELECT MAX(end_ts) - MIN(start_ts) FROM segments`).Scan(&span)
+	if err := a.DB.QueryRow(`SELECT MAX(end_ts) - MIN(start_ts) FROM segments`).Scan(&span); err != nil {
+		t.Fatal(err)
+	}
 	if span != 3600+40*60 { // 02:30 CEST -> 03:10 CET = 1 h 40 min
 		t.Errorf("observed span = %d s", span)
 	}
@@ -412,17 +428,19 @@ func TestReinjectionLinkingWithIdenticalMessages(t *testing.T) {
 	env := testutil.NewEnv(t)
 	testutil.WriteFile(t, env.LogPath("maillog"), l.String(), time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC))
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
 	rows, _ := a.DB.Query(`SELECT c.qid, p.qid FROM instances c JOIN instances p ON p.id = c.parent_id ORDER BY c.qid`)
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	want := map[string]string{"BBBB000001": "AAAA000001", "BBBB000002": "AAAA000002"}
 	n := 0
 	for rows.Next() {
 		var c, p string
-		rows.Scan(&c, &p)
+		if err := rows.Scan(&c, &p); err != nil {
+			t.Fatal(err)
+		}
 		if want[c] != p {
 			t.Errorf("%s linked to %s", c, p)
 		}
@@ -438,7 +456,7 @@ func TestInvalidationMarksDependentPages(t *testing.T) {
 	env := testutil.NewEnv(t)
 	testutil.WriteFile(t, env.LogPath("maillog"), scenario(t).String(), time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC))
 	a := env.Open(t)
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
@@ -446,10 +464,12 @@ func TestInvalidationMarksDependentPages(t *testing.T) {
 	got := map[string]bool{}
 	for rows.Next() {
 		var s string
-		rows.Scan(&s)
+		if err := rows.Scan(&s); err != nil {
+			t.Fatal(err)
+		}
 		got[s] = true
 	}
-	rows.Close()
+	_ = rows.Close()
 	for _, w := range []string{"index index", "day 2026-10-12", "day 2026-10-13", "day 2026-10-11", "day 2026-10-14",
 		"week 2026-W42", "week 2026-W41", "month 2026-10", "month 2026-09", "year 2026"} {
 		if !got[w] {

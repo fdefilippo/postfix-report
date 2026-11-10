@@ -88,9 +88,33 @@ func (c *Correlator) Run(ctx context.Context) (*Stats, error) {
 	if err != nil {
 		return nil, err
 	}
+	windowKey := fmt.Sprint(int64(c.Cfg.Correlation.NotificationWindow.Seconds()))
+	previousWindow, err := store.GetMeta(c.DB, "correlation_notification_window")
+	if err != nil {
+		return nil, err
+	}
+	// Databases predating this option used 60 seconds. Keep the old marker
+	// until every host completes so interrupted changes are retried safely.
+	if previousWindow == "" {
+		previousWindow = "60"
+	}
+	windowChanged := previousWindow != windowKey
+	pendingWindow, err := store.GetMeta(c.DB, "correlation_notification_window_pending")
+	if err != nil {
+		return nil, err
+	}
+	replayWindow := windowChanged || pendingWindow != ""
 	hosts, err := c.hosts()
 	if err != nil {
 		return nil, err
+	}
+	if replayWindow {
+		// Record unfinished replay before changing any host. The completed
+		// marker alone cannot detect a configuration reverted after a partial
+		// replay; this marker forces recovery even when the old value matches.
+		if err := c.markReplay(ctx, windowKey); err != nil {
+			return nil, err
+		}
 	}
 	for _, h := range hosts {
 		wmTS, wmID, err := c.watermark(h)
@@ -106,9 +130,12 @@ func (c *Correlator) Run(ctx context.Context) (*Stats, error) {
         )))`, wmID, h, wmTS, wmTS, wmID).Scan(&older); err != nil {
 			return nil, err
 		}
-		if wmTS > 0 && (older.Valid || upgrade != "") {
-			c.Log.Warn("events older than the correlation watermark: re-correlating host",
-				"host", h, "oldest_new", time.Unix(older.Int64, 0), "watermark", time.Unix(wmTS, 0))
+		if wmTS > 0 && (older.Valid || upgrade != "" || replayWindow) {
+			attrs := []any{"host", h, "watermark", time.Unix(wmTS, 0), "pending_upgrade", upgrade != "", "notification_window_changed", windowChanged, "notification_replay_pending", pendingWindow != ""}
+			if older.Valid {
+				attrs = append(attrs, "oldest_new", time.Unix(older.Int64, 0))
+			}
+			c.Log.Warn("correlation state changed: re-correlating host", attrs...)
 			if err := c.reset(ctx, h, st); err != nil {
 				return nil, err
 			}
@@ -119,7 +146,7 @@ func (c *Correlator) Run(ctx context.Context) (*Stats, error) {
 			return nil, fmt.Errorf("host %s: %w", h, err)
 		}
 	}
-	if err := store.SetMeta(c.DB, "correlation_pending_upgrade", ""); err != nil {
+	if err := c.finishReplay(ctx, windowKey); err != nil {
 		return nil, err
 	}
 	return st, nil
@@ -128,8 +155,12 @@ func (c *Correlator) Run(ctx context.Context) (*Stats, error) {
 // Rebuild discards all derived data and re-correlates every host.
 func (c *Correlator) Rebuild(ctx context.Context) (*Stats, error) {
 	st := &Stats{DirtyDays: map[string]bool{}}
+	windowKey := fmt.Sprint(int64(c.Cfg.Correlation.NotificationWindow.Seconds()))
 	hosts, err := c.hosts()
 	if err != nil {
+		return nil, err
+	}
+	if err := c.markReplay(ctx, windowKey); err != nil {
 		return nil, err
 	}
 	for _, h := range hosts {
@@ -141,7 +172,29 @@ func (c *Correlator) Rebuild(ctx context.Context) (*Stats, error) {
 			return nil, fmt.Errorf("host %s: %w", h, err)
 		}
 	}
+	if err := c.finishReplay(ctx, windowKey); err != nil {
+		return nil, err
+	}
 	return st, nil
+}
+
+func (c *Correlator) markReplay(ctx context.Context, window string) error {
+	return c.DB.Tx(ctx, func(tx *sql.Tx) error {
+		return store.SetMeta(tx, "correlation_notification_window_pending", window)
+	})
+}
+
+func (c *Correlator) finishReplay(ctx context.Context, window string) error {
+	return c.DB.Tx(ctx, func(tx *sql.Tx) error {
+		if err := store.SetMeta(tx, "correlation_notification_window", window); err != nil {
+			return err
+		}
+		if err := store.SetMeta(tx, "correlation_pending_upgrade", ""); err != nil {
+			return err
+		}
+		_, err := tx.Exec(`DELETE FROM meta WHERE key='correlation_notification_window_pending'`)
+		return err
+	})
 }
 
 func (c *Correlator) hosts() ([]string, error) {
@@ -149,7 +202,7 @@ func (c *Correlator) hosts() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	var out []string
 	for rows.Next() {
 		var h string
@@ -236,7 +289,7 @@ func (c *Correlator) runHost(ctx context.Context, host string, wmTS, wmID int64,
 		hs.touched = map[*instance]bool{}
 		for i := range evs {
 			if err := hs.apply(&evs[i]); err != nil {
-				tx.Rollback()
+				_ = tx.Rollback()
 				return fmt.Errorf("event %d: %w", evs[i].id, err)
 			}
 		}
@@ -254,16 +307,16 @@ func (c *Correlator) runHost(ctx context.Context, host string, wmTS, wmID int64,
 			hs.expireStale(wmTS)
 		}
 		if err := hs.savePending(wmTS); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := hs.flush(); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if _, err := tx.Exec(`INSERT INTO corr_state(host, wm_ts, wm_id) VALUES(?,?,?)
 			ON CONFLICT(host) DO UPDATE SET wm_ts=excluded.wm_ts, wm_id=excluded.wm_id`, host, wmTS, wmID); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -303,7 +356,7 @@ func (c *Correlator) fetch(host string, wmTS, wmID int64) ([]dbEvent, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	var out []dbEvent
 	for rows.Next() {
 		var e dbEvent
@@ -346,13 +399,17 @@ func (hs *hostState) load(wmTS int64) error {
 	for rows.Next() {
 		in, err := scanInstance(rows)
 		if err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return err
 		}
 		hs.open[in.key()] = in
 		byID[in.id] = in
 	}
-	rows.Close()
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return err
+	}
 	if len(byID) > 0 {
 		rr, err := db.Query(`SELECT r.id, r.instance_id, r.rcpt, r.orig, r.status, COALESCE(r.first_ts,0), COALESCE(r.final_ts,0),
 			r.attempts, r.deferrals, r.final_delay, COALESCE(r.final_dsn,''), COALESCE(r.final_agent,'')
@@ -365,14 +422,18 @@ func (hs *hostState) load(wmTS int64) error {
 			var iid int64
 			if err := rr.Scan(&r.id, &iid, &r.rcpt, &r.orig, &r.status, &r.firstTS, &r.finalTS, &r.attempts, &r.deferrals,
 				&r.finalDelay, &r.finalDSN, &r.finalAgent); err != nil {
-				rr.Close()
+				_ = rr.Close()
 				return err
 			}
 			if in := byID[iid]; in != nil {
 				in.rcpts[rkey(r.rcpt, r.orig)] = r
 			}
 		}
-		rr.Close()
+		err = rr.Err()
+		_ = rr.Close()
+		if err != nil {
+			return err
+		}
 	}
 	win := int64(hs.c.Cfg.Correlation.ReinjectWindow.Seconds())
 	cr, err := db.Query(`SELECT i.id, COALESCE(i.root_id, i.id), COALESCE(i.sender,''), COALESCE(i.nrcpt,0),
@@ -383,7 +444,7 @@ func (hs *hostState) load(wmTS int64) error {
 	if err != nil {
 		return err
 	}
-	defer cr.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(cr.Close)
 	for cr.Next() {
 		cd := &candidate{}
 		if err := cr.Scan(&cd.id, &cd.rootID, &cd.sender, &cd.nrcpt, &cd.messageID, &cd.hasMessageID, &cd.acceptedTS); err != nil {
@@ -489,7 +550,7 @@ func (hs *hostState) apply(e *dbEvent) error {
 			if cur, err = hs.startInstance(e, OriginInternal); err != nil {
 				return err
 			}
-			if p, ok := hs.pending[e.Inst+"/"+e.QID]; ok && e.TS >= p.ts && e.TS-p.ts <= 60 {
+			if p, ok := hs.pending[e.Inst+"/"+e.QID]; ok && e.TS >= p.ts && e.TS-p.ts <= hs.notificationWindow() {
 				cur.origin, cur.notifType, cur.notifParentID = OriginNotification, p.typ, p.parentID
 				delete(hs.pending, e.Inst+"/"+e.QID)
 			}
@@ -782,11 +843,11 @@ func (hs *hostState) flush() error {
 }
 
 func (hs *hostState) loadPending(wmTS int64) error {
-	rows, err := hs.c.DB.Query(`SELECT inst,qid,type,parent_id,ts FROM pending_notifications WHERE host=? AND ts>=?`, hs.host, wmTS-60)
+	rows, err := hs.c.DB.Query(`SELECT inst,qid,type,parent_id,ts FROM pending_notifications WHERE host=? AND ts>=?`, hs.host, wmTS-hs.notificationWindow())
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var p pendingNotif
 		if err := rows.Scan(&p.inst, &p.qid, &p.typ, &p.parentID, &p.ts); err != nil {
@@ -802,7 +863,7 @@ func (hs *hostState) savePending(wmTS int64) error {
 		return err
 	}
 	for key, p := range hs.pending {
-		if p.ts < wmTS-60 {
+		if p.ts < wmTS-hs.notificationWindow() {
 			delete(hs.pending, key)
 			continue
 		}
@@ -811,4 +872,8 @@ func (hs *hostState) savePending(wmTS int64) error {
 		}
 	}
 	return nil
+}
+
+func (hs *hostState) notificationWindow() int64 {
+	return int64(hs.cfg().Correlation.NotificationWindow.Seconds())
 }

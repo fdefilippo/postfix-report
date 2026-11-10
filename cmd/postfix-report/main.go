@@ -81,23 +81,23 @@ func (s *stringList) Set(v string) error { *s = append(*s, v); return nil }
 func run(args []string, stdout, stderr io.Writer) int {
 	global := flag.NewFlagSet("postfix-report", flag.ContinueOnError)
 	global.SetOutput(stderr)
-	global.Usage = func() { fmt.Fprint(stderr, usage) }
+	global.Usage = func() { _, _ = fmt.Fprint(stderr, usage) }
 	cfgPath := global.String("config", "", "configuration file")
 	if err := global.Parse(args); err != nil {
 		return exitUsage
 	}
 	rest := global.Args()
 	if len(rest) == 0 {
-		fmt.Fprint(stderr, usage)
+		_, _ = fmt.Fprint(stderr, usage)
 		return exitUsage
 	}
 	cmd, cargs := rest[0], rest[1:]
 	switch cmd {
 	case "version":
-		fmt.Fprintln(stdout, "postfix-report", version)
+		_, _ = fmt.Fprintln(stdout, "postfix-report", version)
 		return exitOK
 	case "help", "-h", "--help":
-		fmt.Fprint(stdout, usage)
+		_, _ = fmt.Fprint(stdout, usage)
 		return exitOK
 	}
 	path := *cfgPath
@@ -109,12 +109,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	cfg, err := config.Load(path)
 	if err != nil {
-		fmt.Fprintln(stderr, "configurazione non valida:", err)
+		_, _ = fmt.Fprintln(stderr, "configurazione non valida:", err)
 		return exitUsage
 	}
 	log := newLogger(cfg.Logging.Level, stderr)
 	if cmd == "check-config" {
-		fmt.Fprintln(stdout, "configurazione valida:", path)
+		_, _ = fmt.Fprintln(stdout, "configurazione valida:", path)
 		return exitOK
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -161,7 +161,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			}
 		})
 		if archiveFlags && !*all {
-			fmt.Fprintln(stderr, "export: --from, --to e --kinds richiedono --all")
+			_, _ = fmt.Fprintln(stderr, "export: --from, --to e --kinds richiedono --all")
 			return exitUsage
 		}
 		fs.Visit(func(f *flag.Flag) {
@@ -181,7 +181,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			return exitUsage
 		}
 		if len(files) == 0 && *dir == "" {
-			fmt.Fprintln(stderr, "import: specificare --file o --directory")
+			_, _ = fmt.Fprintln(stderr, "import: specificare --file o --directory")
 			return exitUsage
 		}
 		handler = func(ctx context.Context, a *app.App) int { return c.importCmd(ctx, a, files, *dir) }
@@ -220,7 +220,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		handler = func(ctx context.Context, a *app.App) int { return c.statsCmd(ctx, a, *from, *to, *asJSON) }
 	default:
-		fmt.Fprintf(stderr, "comando sconosciuto %q\n\n%s", cmd, usage)
+		_, _ = fmt.Fprintf(stderr, "comando sconosciuto %q\n\n%s", cmd, usage)
 		return exitUsage
 	}
 	a, err := app.Open(cfg, log)
@@ -232,7 +232,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		log.Error("cannot open database", "err", err)
 		return exitError
 	}
-	defer a.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 	return handler(ctx, a)
 }
 

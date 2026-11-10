@@ -114,7 +114,7 @@ statico: un RPM compilato su EL9 si installa anche su EL10.
 
 Per pubblicare una release si aggiornano `Version` e `%changelog` nello spec
 e la versione in `docs/postfix-report.1`, poi si crea e si invia il tag
-(`git tag -a v0.4.1 && git push origin v0.4.1`). Il workflow
+(`git tag -a v0.5.0 && git push origin v0.5.0`). Il workflow
 `.github/workflows/release.yml` controlla le versioni (`make release-check`),
 compila gli RPM e i `.deb` e crea la release. Parte solo sui tag.
 
@@ -339,9 +339,11 @@ grafici sono incorporati in ogni pagina: non ci sono `fetch()` né CDN.
 * `privacy.anonymize_email` pseudonimizza la parte locale degli indirizzi e gli
   utenti SASL con HMAC. La chiave è nel database, mai nei report.
   `privacy.anonymize_ip` tronca gli IP a /24 o /48. Entrambe le opzioni sono
-  disattivate di default. Cambiarle rigenera tutte le pagine registrate nel
-  database, inclusi i tipi di report disabilitati, al successivo `generate` o
-  `update` (anche generando un solo periodo). Se la riscrittura si interrompe,
+  disattivate di default. Cambiarle rigenera le pagine abilitate registrate nel
+  database al successivo `generate` o `update` (anche generando un solo periodo).
+  Disabilitare un tipo ritira in quella esecuzione i relativi file HTML
+  registrati e aggiorna la navigazione, anche con Apache/Nginx statici;
+  `serve` nega subito le pagine disabilitate. Se la riscrittura si interrompe,
   viene ritentata. File non registrati, copie in altre directory e cache di
   browser/proxy richiedono gestione separata.
 * I motivi di rifiuto e differimento sono normalizzati (indirizzi → `<addr>`,
@@ -367,12 +369,24 @@ make demo        # rigenera demo/ da dati sintetici
 * `cmd/synthlog` genera log sintetici realistici (domini `example.*`, IP di
   documentazione) per demo, benchmark e test.
 
+Il workflow push/PR esegue `make check`, `make test-race` (suite breve),
+`make lint` (errcheck, senza esclusioni di package) e `make vulncheck`, con
+Go 1.27.3, golangci-lint 2.14.0 e govulncheck 1.8.0. `make ci-check` esegue gli
+stessi gate in locale usando tool già installati; i target Make non installano
+strumenti. Il Chrome del runner è richiesto per i test HTML nel browser.
+`make validate` resta un gate locale perché il log di riferimento è privato:
+la CI non vi accede. La qualifica con Go minimo 1.25 e su piattaforme native
+resta separata da questo workflow. La release su tag mantiene il proprio
+workflow di packaging.
+
 ## Prestazioni
 
 Su un Intel N150 (4 core, basso consumo): parser circa 0,5 µs per riga;
 pipeline completa (import, correlazione, aggregazione) circa 24.000 righe/s.
 Il log di riferimento (254.884 righe) si importa in circa 10 s. Il database
 occupa circa 30 MB per 150.000 righe di log al giorno (vedi LIMITATIONS.md).
+Misure ripetibili su archivi e query sintetici: `make bench-archive`; metodo e
+limiti sono descritti in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ## Export PDF/ODT dal browser (opzionale)
 

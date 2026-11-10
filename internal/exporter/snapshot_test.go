@@ -27,7 +27,7 @@ func TestArchiveSnapshotSurvivesWriterCommit(t *testing.T) {
 	if _, err := a.AnonKey(); err != nil {
 		t.Fatal(err)
 	}
-	a.Close()
+	_ = a.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	var d document.Document
@@ -43,7 +43,7 @@ func TestArchiveSnapshotSurvivesWriterCommit(t *testing.T) {
 			return err
 		}
 		_, err = writer.DB.Exec(`UPDATE agg_hour SET value=value+10 WHERE metric='msg_accepted'`)
-		writer.Close()
+		_ = writer.Close()
 		if err != nil {
 			return err
 		}

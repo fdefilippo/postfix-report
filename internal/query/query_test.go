@@ -47,7 +47,7 @@ func TestExactDelayExportLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(db.Close)
 	// This query fixture deliberately isolates delivery statistics from the
 	// correlation graph; no production database is used.
 	if _, err = db.Exec(`PRAGMA foreign_keys=OFF`); err != nil {

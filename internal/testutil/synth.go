@@ -184,8 +184,12 @@ func Synthetic(w io.Writer, c SynthConfig) error {
 					continue
 				}
 			}
-			bw.WriteString(l.s)
-			bw.WriteByte('\n')
+			if _, err := bw.WriteString(l.s); err != nil {
+				return err
+			}
+			if err := bw.WriteByte('\n'); err != nil {
+				return err
+			}
 		}
 	}
 	return bw.Flush()

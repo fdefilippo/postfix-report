@@ -22,7 +22,7 @@ func TestCompareDimensionIdentity(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			env := testutil.NewEnv(t)
 			a := env.Open(t)
-			defer a.Close()
+			defer func(cleanup func() error) { _ = cleanup() }(a.Close)
 			l := testutil.NewLog(t).SMTPMessage("2026-10-12 10:00:00", "A111111111", "B111111111", "a@example.org", 100, "r@example.org").SMTPMessage("2026-10-12 11:00:00", "A222222222", "B222222222", "b@example.net", 100, "r@example.org")
 			path := env.LogPath("mail")
 			testutil.WriteFile(t, path, l.String(), time.Date(2026, 10, 13, 0, 0, 0, 0, time.UTC))

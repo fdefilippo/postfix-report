@@ -68,7 +68,7 @@ func (q *Q) Intervals(lo, hi int64) ([]Interval, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	var out []Interval
 	for rows.Next() {
 		var iv Interval
@@ -216,7 +216,7 @@ func (q *Q) Totals(days []string) (Metrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var k string
 		var v float64
@@ -242,7 +242,7 @@ func (q *Q) ByHour(days []string) ([24]Metrics, error) {
 	if err != nil {
 		return out, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var h int
 		var k string
@@ -264,7 +264,7 @@ func (q *Q) ByDay(first, last string) (map[string]Metrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	for rows.Next() {
 		var d, k string
 		var v float64
@@ -293,7 +293,7 @@ func (q *Q) Ranking(first, last, dim string, limit int) ([]RankItem, int64, int,
 	if err != nil {
 		return nil, 0, 0, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	var out []RankItem
 	var total int64
 	n := 0
@@ -325,7 +325,7 @@ func (q *Q) Delays(lo, hi int64, class string) (DelayStats, error) {
 	if err != nil {
 		return DelayStats{}, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	var v []float64
 	var sum float64
 	for rows.Next() {
@@ -417,7 +417,7 @@ func (q *Q) Sources() ([]SourceInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(rows.Close)
 	var out []SourceInfo
 	for rows.Next() {
 		var s SourceInfo
@@ -450,14 +450,18 @@ func (q *Q) GetAnomalies() (Anomalies, error) {
 		var f string
 		var n int64
 		if err := rows.Scan(&f, &n); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return an, err
 		}
 		for _, x := range strings.Split(f, ",") {
 			an.Flags[x] += n
 		}
 	}
-	rows.Close()
+	err = rows.Err()
+	_ = rows.Close()
+	if err != nil {
+		return an, err
+	}
 	if err := q.DB.QueryRow(`SELECT COALESCE(SUM(count),0) FROM unknown_lines`).Scan(&an.UnknownLines); err != nil {
 		return an, err
 	}

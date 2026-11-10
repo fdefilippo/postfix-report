@@ -4,11 +4,65 @@
 package store
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestDatabasePathIsLiteralForWriterAndReader(t *testing.T) {
+	t.Chdir(t.TempDir())
+	for _, relative := range []bool{false, true} {
+		for _, name := range []string{"question?.sqlite", "fragment#.sqlite", "percent%3F.sqlite", "space name.sqlite", "percent%.sqlite", "mailà.sqlite"} {
+			t.Run(fmt.Sprintf("relative=%t/%s", relative, name), func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "parent?#%", name)
+				if relative {
+					cwd, err := os.Getwd()
+					if err != nil {
+						t.Fatal(err)
+					}
+					path, err = filepath.Rel(cwd, path)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				db, err := Open(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := SetMeta(db, "literal_path", name); err != nil {
+					t.Fatal(err)
+				}
+				if err := db.Close(); err != nil {
+					t.Fatal(err)
+				}
+				info, err := os.Stat(path)
+				if err != nil || info.Size() == 0 || info.Mode().Perm() != 0o640 {
+					t.Fatalf("wrong file/permissions: %v %v", info, err)
+				}
+				entries, err := os.ReadDir(filepath.Dir(path))
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, e := range entries {
+					if e.Name() != name && e.Name() != name+"-wal" && e.Name() != name+"-shm" {
+						t.Fatalf("unexpected alias: %s", e.Name())
+					}
+				}
+				r, err := OpenReader(context.Background(), path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func(cleanup func() error) { _ = cleanup() }(r.Close)
+				if value, err := GetMeta(r, "literal_path"); err != nil || value != name {
+					t.Fatalf("writer/reader disagree: %q %v", value, err)
+				}
+			})
+		}
+	}
+}
 
 func TestOpenMigratesOnceAndRestrictsPermissions(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "x", "r.db")
@@ -27,7 +81,7 @@ func TestOpenMigratesOnceAndRestrictsPermissions(t *testing.T) {
 		if got, _ := GetMeta(db, "k"); got != "v" {
 			t.Errorf("meta %q", got)
 		}
-		db.Close()
+		_ = db.Close()
 	}
 	st, err := os.Stat(p)
 	if err != nil {
@@ -68,7 +122,7 @@ func TestUpgradeFromV1PreservesReferences(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(db.Close)
 	for _, table := range []string{"sources", "events", "segments", "import_files", "unknown_lines"} {
 		var n int
 		if err := db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&n); err != nil || n != 1 {
@@ -92,7 +146,7 @@ func TestMigrationRollbackRestoresForeignKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(db.Close)
 	err = db.applyMigration(2, "invalid-fixture", `INSERT INTO segments(source_id,host,start_ts,end_ts) VALUES(999,'mx',1,2)`)
 	if err == nil {
 		t.Fatal("invalid FK migration accepted")

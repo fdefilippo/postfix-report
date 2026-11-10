@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -33,6 +34,10 @@ type DB struct {
 
 // Open opens (creating if needed) the database and applies pending migrations.
 func Open(path string) (*DB, error) {
+	u, err := databaseURL(path)
+	if err != nil {
+		return nil, err
+	}
 	if dir := filepath.Dir(path); dir != "" {
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return nil, err
@@ -44,10 +49,15 @@ func Open(path string) (*DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		f.Close()
+		_ = f.Close()
 	}
-	dsn := "file:" + path + "?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(ON)&_txlock=immediate"
-	sdb, err := sql.Open("sqlite", dsn)
+	params := u.Query()
+	for _, pragma := range []string{"busy_timeout(10000)", "journal_mode(WAL)", "synchronous(NORMAL)", "foreign_keys(ON)"} {
+		params.Add("_pragma", pragma)
+	}
+	params.Set("_txlock", "immediate")
+	u.RawQuery = params.Encode()
+	sdb, err := sql.Open("sqlite", u.String())
 	if err != nil {
 		return nil, err
 	}
@@ -56,10 +66,36 @@ func Open(path string) (*DB, error) {
 	sdb.SetMaxOpenConns(1)
 	db := &DB{DB: sdb, Path: path}
 	if err := db.migrate(); err != nil {
-		sdb.Close()
+		_ = sdb.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 	return db, nil
+}
+
+// databaseURL gives both readers and writers the same literal, absolute path.
+func databaseURL(path string) (url.URL, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return url.URL{}, err
+	}
+	return url.URL{Scheme: "file", Path: abs}, nil
+}
+
+// LatestSchemaVersion returns the newest migration embedded in this binary.
+func LatestSchemaVersion() (int, error) {
+	entries, err := migrationFS.ReadDir("migrations")
+	if err != nil {
+		return 0, err
+	}
+	want := 0
+	for _, e := range entries {
+		n, err := strconv.Atoi(strings.SplitN(e.Name(), "_", 2)[0])
+		if err != nil {
+			return 0, fmt.Errorf("bad migration name %s: %w", e.Name(), err)
+		}
+		want = max(want, n)
+	}
+	return want, nil
 }
 
 // SchemaVersion returns the highest applied migration.
@@ -111,7 +147,8 @@ func (db *DB) Tx(ctx context.Context, fn func(*sql.Tx) error) error {
 		return err
 	}
 	if err := fn(tx); err != nil {
-		tx.Rollback()
+		// Preserve the callback failure; rollback is cleanup after that failure.
+		_ = tx.Rollback()
 		return err
 	}
 	return tx.Commit()
@@ -166,7 +203,7 @@ func (db *DB) applyMigration(v int, name, body string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(conn.Close)
 	if v == 2 {
 		if _, err = conn.ExecContext(ctx, `PRAGMA foreign_keys=OFF`); err != nil {
 			return err
@@ -177,7 +214,7 @@ func (db *DB) applyMigration(v int, name, body string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func(cleanup func() error) { _ = cleanup() }(tx.Rollback)
 	if _, err = tx.ExecContext(ctx, body); err != nil {
 		return fmt.Errorf("%s: %w", name, err)
 	}

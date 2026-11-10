@@ -59,12 +59,12 @@ func withGenerator(ctx context.Context, cfg *config.Config, version string, fn f
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(db.Close)
 	tx, err := db.BeginTx(readCtx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func(cleanup func() error) { _ = cleanup() }(tx.Rollback)
 	var dirty int
 	if err = tx.QueryRowContext(readCtx, `SELECT COUNT(*) FROM dirty_days`).Scan(&dirty); err != nil {
 		return err

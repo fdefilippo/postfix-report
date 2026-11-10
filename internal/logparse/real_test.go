@@ -41,7 +41,7 @@ func TestRealLogClassification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(f.Close)
 	loc, _ := time.LoadLocation("Europe/Rome")
 	clock := NewClock(loc, 2026, time.Time{}, nil)
 	counts := map[Kind]int{}

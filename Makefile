@@ -6,6 +6,8 @@ PREFIX   ?= /usr/local
 VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS  := -s -w -X main.version=$(VERSION)
 GO       ?= go
+GOLANGCI_LINT ?= golangci-lint
+GOVULNCHECK   ?= govulncheck
 # Static, CGO-free binary: runs on any Linux of the same architecture
 # (including Enterprise Linux 8/9/10) without SQLite libraries.
 export CGO_ENABLED := 0
@@ -30,7 +32,7 @@ DEB_DOC     := $(DEB_ROOT)/usr/share/doc/$(BINARY)
 DEB_FILE    := dist/$(BINARY)_$(DEB_VERSION)_$(DEB_ARCH).deb
 DEB_DATE    := $(shell git log -1 --format=%cD 2>/dev/null || date -R)
 
-.PHONY: all build test test-short test-race test-validation bench vet fmt-check check validate demo install install-systemd uninstall dist rpm srpm deb release-check clean
+.PHONY: all build test test-short test-race test-validation bench bench-archive vet fmt-check check lint vulncheck ci-check validate demo install install-systemd uninstall dist rpm srpm deb release-check clean
 
 all: check build
 
@@ -52,6 +54,10 @@ test-race:
 bench:
 	$(GO) test -run '^$$' -bench . -benchmem ./internal/logparse/ ./internal/app/
 
+# Synthetic archive/query measurements; deliberately excluded from CI gates.
+bench-archive:
+	$(GO) test -run '^$$' -bench 'Benchmark(ArchiveIndex|NoNewDataUpdate|RankingIndices|RankingWriteBatch|ExactDelays)' -benchmem ./internal/report ./internal/query
+
 vet:
 	$(GO) vet ./...
 
@@ -62,6 +68,16 @@ test-validation:
 	PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s scripts -p 'test_*.py'
 
 check: fmt-check vet test test-validation
+
+# CI installs the versions pinned in .github/workflows/check.yml. These targets
+# use existing tools only; they never install dependencies on the local host.
+lint:
+	$(GOLANGCI_LINT) run --no-config --enable-only errcheck --max-same-issues=0 --max-issues-per-linter=0 ./...
+
+vulncheck:
+	$(GOVULNCHECK) ./...
+
+ci-check: check lint test-race vulncheck
 
 # Independent validation on the reference log (see VALIDATION.md).
 validate: build
@@ -94,6 +110,7 @@ install: build
 	install -D -m 0644 METRICS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/METRICS.md
 	install -D -m 0644 LIMITATIONS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/LIMITATIONS.md
 	install -D -m 0644 EXPORTS.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/EXPORTS.md
+	install -D -m 0644 docs/PERFORMANCE.md $(DESTDIR)$(PREFIX)/share/doc/postfix-report/docs/PERFORMANCE.md
 	install -D -m 0644 docs/apache-httpd.conf $(DESTDIR)$(PREFIX)/share/doc/postfix-report/examples/apache-httpd.conf
 	install -D -m 0644 docs/nginx.conf $(DESTDIR)$(PREFIX)/share/doc/postfix-report/examples/nginx.conf
 	install -d $(DESTDIR)$(PREFIX)/share/doc/postfix-report/licenses
@@ -167,6 +184,7 @@ deb:
 	install -m 0644 packaging/deb/copyright $(DEB_ROOT)/etc/postfix-report/config.yaml $(DEB_DOC)/
 	mv $(DEB_DOC)/config.yaml $(DEB_DOC)/config.example.yaml
 	for f in README.md README.it.md METRICS.md LIMITATIONS.md LOG_ANALYSIS.md VALIDATION.md EXPORTS.md; do gzip -9n -c $$f > $(DEB_DOC)/$$f.gz; done
+	install -D -m 0644 docs/PERFORMANCE.md $(DEB_DOC)/docs/PERFORMANCE.md
 	install -m 0644 deploy/apache/postfix-report.conf $(DEB_DOC)/examples/apache-postfix-report.conf
 	install -m 0644 deploy/nginx/postfix-report.conf $(DEB_DOC)/examples/nginx-postfix-report.conf
 	install -m 0644 deploy/nginx/postfix-report-web.conf $(DEB_DOC)/examples/nginx-postfix-report-web.conf

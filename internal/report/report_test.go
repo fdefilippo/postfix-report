@@ -45,7 +45,7 @@ func fixture(t *testing.T) (*testutil.Env, *app.App, *report.Generator) {
 	buf.WriteString("Jan 18 12:00:00 mx1 postfix/smtpd[9]: NOQUEUE: reject: RCPT from unknown[203.0.113.66]: 554 5.7.1 <script>alert(1)</script> denied \"x\" & co; from=<a@example.com> to=<b@example.org> proto=ESMTP helo=<h>\n")
 	testutil.WriteFile(t, env.LogPath("maillog"), buf.String(), time.Date(2026, 1, 20, 12, 0, 0, 0, time.UTC))
 	a := env.Open(t)
-	t.Cleanup(func() { a.Close() })
+	t.Cleanup(func() { _ = a.Close() })
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
@@ -368,12 +368,14 @@ func TestAnonymization(t *testing.T) {
 
 func modTimes(t *testing.T, dir string) map[string]time.Time {
 	m := map[string]time.Time{}
-	filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() {
 			m[p] = info.ModTime()
 		}
 		return nil
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	return m
 }
 
@@ -393,8 +395,10 @@ func TestSelectiveRegeneration(t *testing.T) {
 	}
 	// New lines for the last day (2026-01-18).
 	f, _ := os.OpenFile(env.LogPath("maillog"), os.O_APPEND|os.O_WRONLY, 0)
-	f.WriteString("Jan 18 23:59:00 mx1 postfix/smtpd[9]: NOQUEUE: reject: RCPT from unknown[203.0.113.67]: 554 5.7.1 <c@example.com>: Relay access denied; from=<a@example.com> to=<c@example.com> proto=ESMTP helo=<h>\n")
-	f.Close()
+	if _, err := f.WriteString("Jan 18 23:59:00 mx1 postfix/smtpd[9]: NOQUEUE: reject: RCPT from unknown[203.0.113.67]: 554 5.7.1 <c@example.com>: Relay access denied; from=<a@example.com> to=<c@example.com> proto=ESMTP helo=<h>\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
 	if _, err := a.Import(ctx, "test", []string{env.LogPath("maillog")}); err != nil {
 		t.Fatal(err)
 	}
@@ -492,7 +496,7 @@ func TestStaticWebServer(t *testing.T) {
 			t.Fatal(err)
 		}
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if resp.StatusCode != 200 {
 			t.Errorf("GET %s: %d", u, resp.StatusCode)
 			continue

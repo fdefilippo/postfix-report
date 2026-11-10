@@ -13,7 +13,7 @@ import (
 func TestReaderNeverCreatesMigratesOrWrites(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "new.db")
 	if db, err := OpenReader(context.Background(), p); err == nil {
-		db.Close()
+		_ = db.Close()
 		t.Fatal("created missing DB")
 	}
 	if _, err := os.Stat(p); !os.IsNotExist(err) {
@@ -23,7 +23,7 @@ func TestReaderNeverCreatesMigratesOrWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db.Close()
+	_ = db.Close()
 	r, err := OpenReader(context.Background(), p)
 	if err != nil {
 		t.Fatal(err)
@@ -31,7 +31,7 @@ func TestReaderNeverCreatesMigratesOrWrites(t *testing.T) {
 	if _, err = r.Exec(`INSERT INTO meta(key,value) VALUES('reader','bad')`); err == nil {
 		t.Fatal("read-only write succeeded")
 	}
-	r.Close()
+	_ = r.Close()
 	db, err = Open(p)
 	if err != nil {
 		t.Fatal(err)
@@ -39,9 +39,9 @@ func TestReaderNeverCreatesMigratesOrWrites(t *testing.T) {
 	if _, err = db.Exec(`DELETE FROM schema_migrations WHERE version=2`); err != nil {
 		t.Fatal(err)
 	}
-	db.Close()
+	_ = db.Close()
 	if r, err = OpenReader(context.Background(), p); err == nil {
-		r.Close()
+		_ = r.Close()
 		t.Fatal("old schema silently accepted/migrated")
 	}
 }
@@ -52,7 +52,7 @@ func TestWALReaderRetainsSnapshotWhileWriterCommits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer writer.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(writer.Close)
 	if _, err = writer.Exec(`INSERT INTO meta(key,value) VALUES('snapshot','before')`); err != nil {
 		t.Fatal(err)
 	}
@@ -60,12 +60,12 @@ func TestWALReaderRetainsSnapshotWhileWriterCommits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer r.Close()
+	defer func(cleanup func() error) { _ = cleanup() }(r.Close)
 	tx, err := r.Begin()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer func(cleanup func() error) { _ = cleanup() }(tx.Rollback)
 	var value string
 	if err = tx.QueryRow(`SELECT value FROM meta WHERE key='snapshot'`).Scan(&value); err != nil || value != "before" {
 		t.Fatal(value, err)
