@@ -134,6 +134,7 @@ exit 0
 - Dashboard: schede Panoramica ed Esporta, con export archivio nella seconda.
 - Navigazione da tastiera, link diretto e memoria schede separata dai report.
 - Guide IT/EN aggiornate e verifica browser del download PDF archivio.
+- Toolchain CI e release Go 1.27.4 per la correzione GO-2026-6859 in net/http.
 
 * Tue Nov 10 2026 Francesco Defilippo <francesco@defilippo.org> - 0.5.0-1
 - Ritiro e ripristino dei report disabilitati con recupero delle pubblicazioni interrotte.
