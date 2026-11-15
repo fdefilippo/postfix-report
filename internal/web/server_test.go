@@ -358,7 +358,7 @@ func TestStaticFilesCannotEscapeOrExposeDatabase(t *testing.T) {
 // Exercise the actual browser script under the production CSP, including cookie,
 // CSRF, asynchronous completion and its automatic attachment request.
 func TestBrowserExport(t *testing.T) {
-	for _, path := range []string{"/daily/2026-10-25.html", "/index.html"} {
+	for _, path := range []string{"/daily/2026-10-25.html", "/index.html", "/index.html#esporta"} {
 		t.Run(path, func(t *testing.T) { testBrowserExport(t, path) })
 	}
 }
@@ -379,6 +379,7 @@ func testBrowserExport(t *testing.T, pagePath string) {
 	}
 	_, s, _, _ := serverFixture(t, "/")
 	var downloaded atomic.Bool
+	var browserError atomic.Pointer[string]
 	finished := make(chan struct{})
 	var finishOnce sync.Once
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -392,9 +393,50 @@ func testBrowserExport(t *testing.T, pagePath string) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		if r.URL.Path == "/browser-failed" {
+			message := r.URL.Query().Get("error")
+			browserError.Store(&message)
+			finishOnce.Do(func() { close(finished) })
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		if r.URL.Path == "/browser-test.js" {
 			w.Header().Set("Content-Type", "application/javascript")
-			_, _ = io.WriteString(w, `function begin(){
+			_, _ = io.WriteString(w, `var tabsChecked = false;
+function assert(ok, message) { if (!ok) throw new Error(message); }
+function checkTabs() {
+ var form = document.querySelector('[data-archive="true"]');
+ if (!form) return true;
+ var box = form.closest('.tabs');
+ if (!box || !box.classList.contains('ready')) return false;
+ var overview = document.getElementById('panoramica');
+ var exporting = document.getElementById('esporta');
+ var tabOverview = document.getElementById('tab-panoramica');
+ var tabExport = document.getElementById('tab-esporta');
+ var list = box.querySelector('[role=tablist]');
+ assert(list.querySelectorAll('[role=tab]').length === 2, 'expected two dashboard tabs');
+ assert(tabOverview.textContent === 'Panoramica' && tabExport.textContent === 'Esporta', 'tab labels');
+ assert(!document.querySelector('.pagehead').closest('[role=tabpanel]'), 'page heading inside a tab');
+ assert(overview.querySelector('.kpis') && overview.querySelector('.tabs.ready'), 'overview content missing');
+ assert(exporting.contains(form), 'export form outside export tab');
+ var initialExport = location.hash === '#esporta';
+ assert(exporting.hidden === !initialExport && overview.hidden === initialExport, 'initial tab selection');
+ var detailTab = localStorage.getItem('postfix-report.tab');
+ tabExport.click();
+ assert(!exporting.hidden && overview.hidden && tabExport.getAttribute('aria-selected') === 'true', 'export click');
+ assert(location.hash === '#esporta', 'export fragment');
+ assert(localStorage.getItem('postfix-report.overview-tab') === 'esporta', 'dashboard selection not saved');
+ assert(localStorage.getItem('postfix-report.tab') === detailTab, 'detail selection overwritten');
+ tabExport.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowLeft', bubbles:true}));
+ assert(!overview.hidden && exporting.hidden && document.activeElement === tabOverview, 'keyboard overview');
+ tabOverview.dispatchEvent(new KeyboardEvent('keydown', {key:'End', bubbles:true}));
+ assert(!exporting.hidden && overview.hidden && document.activeElement === tabExport, 'keyboard export');
+ return true;
+}
+function begin(){
+try {
+ if (!tabsChecked) { if (!checkTabs()) { setTimeout(begin,50); return; } tabsChecked = true; }
+} catch(error) { fetch('/browser-failed?error=' + encodeURIComponent(error.message)); return; }
 var button = document.querySelector('[data-export="pdf"]');
 if(!button || button.disabled){setTimeout(begin,50);return;}
 button.click();
@@ -480,6 +522,9 @@ complete(); }); } begin();`)
 	out, err := cmd.CombinedOutput()
 	select {
 	case <-finished:
+		if message := browserError.Load(); message != nil {
+			t.Fatal("browser UI:", *message)
+		}
 		// Cancellation is expected after both independent success signals.
 		if !downloaded.Load() {
 			t.Fatal("browser completion without PDF response")

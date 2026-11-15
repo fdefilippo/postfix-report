@@ -14,6 +14,52 @@
   var all = panel.querySelector("[data-all]");
   var preview = panel.querySelector("[data-preview]");
   var planText = panel.querySelector("[data-plan]");
+  // Build the dashboard tabs before report.js initializes all tab sets at
+  // DOMContentLoaded. Keep the page heading outside and the existing overview
+  // sections (including their tabs) together. Without JS the original page
+  // and export form remain visible.
+  function archiveTabs() {
+    var main = panel.closest("main");
+    if (!main) return;
+    var box = document.createElement("div");
+    box.className = "tabs";
+    box.dataset.tabKey = "postfix-report.overview-tab";
+    var list = document.createElement("div");
+    list.className = "tablist";
+    list.setAttribute("role", "tablist");
+    list.setAttribute("aria-label", L("Sezioni della pagina", "Page sections"));
+    list.hidden = true;
+    box.appendChild(list);
+    var sections = [L("Panoramica", "Overview"), L("Esporta", "Export")].map(function (label, i) {
+      var id = i === 0 ? "panoramica" : "esporta";
+      var tab = document.createElement("button");
+      tab.type = "button";
+      tab.id = "tab-" + id;
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-controls", id);
+      tab.setAttribute("aria-selected", "false");
+      tab.tabIndex = -1;
+      tab.textContent = label;
+      list.appendChild(tab);
+      var section = document.createElement("section");
+      section.className = "section tabpanel" + (i ? " noprint" : "");
+      section.id = id;
+      section.setAttribute("role", "tabpanel");
+      section.setAttribute("aria-labelledby", tab.id);
+      var title = document.createElement("h2");
+      title.textContent = label;
+      section.appendChild(title);
+      box.appendChild(section);
+      return section;
+    });
+    Array.from(main.children).forEach(function (child) {
+      if (child !== panel && !child.classList.contains("pagehead") && child.tagName !== "SCRIPT") {
+        sections[0].appendChild(child);
+      }
+    });
+    sections[1].appendChild(panel);
+    main.appendChild(box);
+  }
   function json(url, options) {
     return fetch(url, options).then(function (r) {
       if (!r.ok) {
@@ -100,6 +146,7 @@
     });
   });
   if (archive) {
+    archiveTabs();
     preview.addEventListener("click", checkSelection);
     panel.querySelectorAll("input").forEach(function (input) {
       input.addEventListener("change", function () {

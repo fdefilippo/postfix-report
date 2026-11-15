@@ -319,10 +319,10 @@
   // keeps the same tab. Without JavaScript every panel is shown.
   var TAB_KEY = "postfix-report.tab";
 
-  function store(v) {
+  function store(v, key) {
     try {
-      if (v === undefined) return window.localStorage.getItem(TAB_KEY);
-      window.localStorage.setItem(TAB_KEY, v);
+      if (v === undefined) return window.localStorage.getItem(key);
+      window.localStorage.setItem(key, v);
     } catch (e) { /* storage unavailable: no memory between pages */ }
     return null;
   }
@@ -330,6 +330,8 @@
   function initTabs() {
     var sets = [];
     Array.prototype.forEach.call(document.querySelectorAll(".tabs"), function (box) {
+      // Dashboard navigation must not replace the remembered report section.
+      var key = box.getAttribute("data-tab-key") || TAB_KEY;
       var list = box.querySelector("[role=tablist]");
       var tabs = Array.prototype.slice.call(list.querySelectorAll("[role=tab]"));
       if (!tabs.length) return;
@@ -351,7 +353,7 @@
         if (focus) t.focus();
         if (remember) {
           var id = t.getAttribute("aria-controls");
-          store(id);
+          store(id, key);
           if (window.history && history.replaceState) history.replaceState(null, "", "#" + id);
         }
       };
@@ -391,7 +393,7 @@
         // The browser may scroll to the fragment again at load.
         window.addEventListener("load", function () { setTimeout(function () { list.scrollIntoView(); }, 0); });
       } else {
-        select(byId(store()) || tabs[0], false, false);
+        select(byId(store(undefined, key)) || tabs[0], false, false);
       }
       sets.push(fromHash);
     });

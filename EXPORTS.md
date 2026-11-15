@@ -15,7 +15,8 @@ Archive exports are generated on demand; `update` does not pre-generate PDF/ODT 
 
 ## Complete archive in one PDF or ODT
 
-With `serve`, the top of the main index includes **Export complete archive**
+With `serve`, the main index has **Overview** and **Export** tabs.
+The **Export** tab includes **Export complete archive**
 (**Esporta archivio completo** in Italian). It exports a single document containing
 all selected reports, with a cover, page numbers and a linked table of contents.
 PDF also includes bookmarks; ODT has an editable native table of contents.

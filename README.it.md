@@ -114,7 +114,7 @@ statico: un RPM compilato su EL9 si installa anche su EL10.
 
 Per pubblicare una release si aggiornano `Version` e `%changelog` nello spec
 e la versione in `docs/postfix-report.1`, poi si crea e si invia il tag
-(`git tag -a v0.5.0 && git push origin v0.5.0`). Il workflow
+(`git tag -a v0.5.1 && git push origin v0.5.1`). Il workflow
 `.github/workflows/release.yml` controlla le versioni (`make release-check`),
 compila gli RPM e i `.deb` e crea la release. Parte solo sui tag.
 
@@ -395,7 +395,8 @@ pulsanti PDF e ODT per scaricare un documento completo e autonomo, generato su
 richiesta. Il timer di aggiornamento continua a funzionare separatamente.
 Per l'accesso remoto utilizzare il profilo reverse proxy con HTTPS e
 autenticazione e l'unità opzionale `postfix-report-web.service`. È disponibile
-anche il comando CLI `export`. Nell'indice principale, **Esporta archivio completo**
+anche il comando CLI `export`. La pagina principale ha le schede **Panoramica**
+ed **Esporta**; nella seconda, **Esporta archivio completo**
 genera un unico PDF/ODT con indice navigabile e report annuali, mensili, settimanali
 e giornalieri, selezionabili per intervallo e tipo. Da CLI usare `export --all`.
 Configurazione, privacy e limiti sono descritti

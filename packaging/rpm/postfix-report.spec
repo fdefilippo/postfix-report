@@ -9,7 +9,7 @@
 %global debug_package %{nil}
 
 Name:           postfix-report
-Version:        0.5.0
+Version:        0.5.1
 Release:        1%{?dist}
 Summary:        Statistiche Postfix con report HTML, PDF e ODT
 
@@ -130,6 +130,11 @@ exit 0
 %dir %attr(0755,%{name},%{name}) %{_localstatedir}/www/html/%{name}
 
 %changelog
+* Sun Nov 15 2026 Francesco Defilippo <francesco@defilippo.org> - 0.5.1-1
+- Dashboard: schede Panoramica ed Esporta, con export archivio nella seconda.
+- Navigazione da tastiera, link diretto e memoria schede separata dai report.
+- Guide IT/EN aggiornate e verifica browser del download PDF archivio.
+
 * Tue Nov 10 2026 Francesco Defilippo <francesco@defilippo.org> - 0.5.0-1
 - Ritiro e ripristino dei report disabilitati con recupero delle pubblicazioni interrotte.
 - Finestra notifiche configurabile e replay storico recuperabile dopo errori parziali.
